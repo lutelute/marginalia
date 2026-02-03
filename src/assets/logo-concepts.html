@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Marginalia Logo Concepts</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #1e1e1e;
+      color: #ccc;
+      padding: 40px;
+    }
+    h1 { text-align: center; margin-bottom: 40px; }
+    .logo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 40px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .logo-card {
+      background: #252526;
+      border-radius: 16px;
+      padding: 32px;
+      text-align: center;
+    }
+    .logo-card h3 {
+      margin: 20px 0 8px;
+      color: #fff;
+    }
+    .logo-card p {
+      font-size: 13px;
+      color: #888;
+    }
+    .logo-container {
+      height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .variations {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #404040;
+    }
+    .variations svg {
+      width: 40px;
+      height: 40px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Marginalia Logo Concepts</h1>
+
+  <div class="logo-grid">
+
+    <!-- Concept 1: Book with Margin Note -->
+    <div class="logo-card">
+      <div class="logo-container">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <defs>
+            <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#0078d4"/>
+              <stop offset="100%" style="stop-color:#00bcf2"/>
+            </linearGradient>
+          </defs>
+          <!-- Book shape -->
+          <path d="M20 15 L20 85 Q50 75 80 85 L80 15 Q50 25 20 15"
+                fill="none" stroke="url(#grad1)" stroke-width="3" stroke-linejoin="round"/>
+          <!-- Center fold -->
+          <path d="M50 20 L50 80" stroke="url(#grad1)" stroke-width="2" opacity="0.5"/>
+          <!-- Margin line -->
+          <line x1="30" y1="20" x2="30" y2="75" stroke="#ffc107" stroke-width="2" stroke-dasharray="4,3"/>
+          <!-- Annotation marks -->
+          <circle cx="26" cy="35" r="3" fill="#ffc107"/>
+          <circle cx="26" cy="50" r="3" fill="#9c27b0"/>
+          <circle cx="26" cy="65" r="3" fill="#4caf50"/>
+        </svg>
+      </div>
+      <h3>Concept 1: Open Book</h3>
+      <p>開いた本と余白の注釈マーク。<br>クラシックで学術的な印象。</p>
+      <div class="variations">
+        <svg viewBox="0 0 40 40">
+          <path d="M8 6 L8 34 Q20 30 32 34 L32 6 Q20 10 8 6" fill="#0078d4"/>
+          <line x1="12" y1="10" x2="12" y2="30" stroke="#ffc107" stroke-width="1.5"/>
+        </svg>
+        <svg viewBox="0 0 40 40">
+          <path d="M8 6 L8 34 Q20 30 32 34 L32 6 Q20 10 8 6" fill="none" stroke="#0078d4" stroke-width="2"/>
+          <circle cx="10" cy="15" r="2" fill="#ffc107"/>
+          <circle cx="10" cy="22" r="2" fill="#9c27b0"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Concept 2: M with Highlight -->
+    <div class="logo-card">
+      <div class="logo-container">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <defs>
+            <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" style="stop-color:#0078d4"/>
+              <stop offset="100%" style="stop-color:#00bcf2"/>
+            </linearGradient>
+          </defs>
+          <!-- Highlight background -->
+          <rect x="15" y="25" width="70" height="50" rx="6" fill="#ffc107" opacity="0.2"/>
+          <!-- M letter -->
+          <path d="M25 75 L25 30 L50 55 L75 30 L75 75"
+                fill="none" stroke="url(#grad2)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Annotation dot -->
+          <circle cx="82" cy="28" r="6" fill="#ffc107"/>
+        </svg>
+      </div>
+      <h3>Concept 2: Highlighted M</h3>
+      <p>ハイライトされた「M」。<br>モダンでテック感のあるデザイン。</p>
+      <div class="variations">
+        <svg viewBox="0 0 40 40">
+          <rect x="6" y="10" width="28" height="20" rx="3" fill="#ffc107" opacity="0.3"/>
+          <path d="M10 30 L10 12 L20 22 L30 12 L30 30" fill="none" stroke="#0078d4" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+        <svg viewBox="0 0 40 40">
+          <path d="M10 30 L10 12 L20 22 L30 12 L30 30" fill="none" stroke="#0078d4" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="33" cy="10" r="3" fill="#ffc107"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Concept 3: Document with Speech Bubble -->
+    <div class="logo-card">
+      <div class="logo-container">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <defs>
+            <linearGradient id="grad3" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style="stop-color:#0078d4"/>
+              <stop offset="100%" style="stop-color:#005a9e"/>
+            </linearGradient>
+          </defs>
+          <!-- Document -->
+          <rect x="20" y="15" width="45" height="60" rx="4" fill="url(#grad3)"/>
+          <!-- Document lines -->
+          <line x1="28" y1="30" x2="55" y2="30" stroke="#fff" stroke-width="2" opacity="0.6"/>
+          <line x1="28" y1="40" x2="50" y2="40" stroke="#fff" stroke-width="2" opacity="0.6"/>
+          <line x1="28" y1="50" x2="55" y2="50" stroke="#fff" stroke-width="2" opacity="0.6"/>
+          <line x1="28" y1="60" x2="45" y2="60" stroke="#fff" stroke-width="2" opacity="0.6"/>
+          <!-- Comment bubble -->
+          <path d="M55 35 Q55 25 70 25 L80 25 Q90 25 90 35 L90 50 Q90 60 80 60 L70 60 L60 70 L65 60 Q55 60 55 50 Z"
+                fill="#ffc107"/>
+          <!-- Comment icon -->
+          <circle cx="72" cy="42" r="3" fill="#1e1e1e"/>
+          <circle cx="72" cy="42" r="1.5" fill="#ffc107"/>
+        </svg>
+      </div>
+      <h3>Concept 3: Document + Comment</h3>
+      <p>ドキュメントとコメント吹き出し。<br>コラボレーションを表現。</p>
+      <div class="variations">
+        <svg viewBox="0 0 40 40">
+          <rect x="8" y="6" width="18" height="24" rx="2" fill="#0078d4"/>
+          <path d="M22 14 Q22 10 28 10 L32 10 Q36 10 36 14 L36 20 Q36 24 32 24 L28 24 L24 28 L26 24 Q22 24 22 20 Z" fill="#ffc107"/>
+        </svg>
+        <svg viewBox="0 0 40 40">
+          <rect x="8" y="6" width="18" height="24" rx="2" fill="none" stroke="#0078d4" stroke-width="2"/>
+          <circle cx="30" cy="12" r="6" fill="#ffc107"/>
+          <text x="30" y="15" text-anchor="middle" fill="#1e1e1e" font-size="8" font-weight="bold">!</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Concept 4: Pen with Margin -->
+    <div class="logo-card">
+      <div class="logo-container">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <defs>
+            <linearGradient id="grad4" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#0078d4"/>
+              <stop offset="100%" style="stop-color:#00bcf2"/>
+            </linearGradient>
+          </defs>
+          <!-- Vertical margin line -->
+          <line x1="30" y1="15" x2="30" y2="85" stroke="#ffc107" stroke-width="3"/>
+          <!-- Pen -->
+          <g transform="rotate(-45 60 50)">
+            <rect x="50" y="30" width="12" height="50" rx="2" fill="url(#grad4)"/>
+            <polygon points="50,80 56,95 62,80" fill="#333"/>
+            <rect x="50" y="30" width="12" height="8" fill="#005a9e"/>
+          </g>
+          <!-- Annotation dots on margin -->
+          <circle cx="30" cy="30" r="5" fill="#ffc107"/>
+          <circle cx="30" cy="50" r="5" fill="#9c27b0"/>
+          <circle cx="30" cy="70" r="5" fill="#4caf50"/>
+        </svg>
+      </div>
+      <h3>Concept 4: Pen & Margin</h3>
+      <p>ペンと余白ライン。<br>執筆・編集の象徴。</p>
+      <div class="variations">
+        <svg viewBox="0 0 40 40">
+          <line x1="10" y1="6" x2="10" y2="34" stroke="#ffc107" stroke-width="2"/>
+          <g transform="rotate(-45 25 20)">
+            <rect x="20" y="12" width="6" height="20" rx="1" fill="#0078d4"/>
+            <polygon points="20,32 23,38 26,32" fill="#333"/>
+          </g>
+        </svg>
+        <svg viewBox="0 0 40 40">
+          <line x1="10" y1="6" x2="10" y2="34" stroke="#ffc107" stroke-width="2"/>
+          <circle cx="10" cy="12" r="3" fill="#ffc107"/>
+          <circle cx="10" cy="22" r="3" fill="#9c27b0"/>
+          <circle cx="10" cy="32" r="3" fill="#4caf50"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Concept 5: Abstract M with Notes -->
+    <div class="logo-card">
+      <div class="logo-container">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <defs>
+            <linearGradient id="grad5" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#0078d4"/>
+              <stop offset="50%" style="stop-color:#00bcf2"/>
+              <stop offset="100%" style="stop-color:#0078d4"/>
+            </linearGradient>
+          </defs>
+          <!-- Abstract M shape -->
+          <path d="M15 80 L15 25 C15 20 20 20 25 25 L50 55 L75 25 C80 20 85 20 85 25 L85 80"
+                fill="none" stroke="url(#grad5)" stroke-width="6" stroke-linecap="round"/>
+          <!-- Floating annotation icons -->
+          <g transform="translate(78, 15)">
+            <rect x="0" y="0" width="16" height="16" rx="4" fill="#ffc107"/>
+            <text x="8" y="12" text-anchor="middle" fill="#1e1e1e" font-size="10" font-weight="bold">C</text>
+          </g>
+          <g transform="translate(5, 45)">
+            <rect x="0" y="0" width="16" height="16" rx="4" fill="#9c27b0"/>
+            <text x="8" y="12" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">R</text>
+          </g>
+        </svg>
+      </div>
+      <h3>Concept 5: Dynamic M</h3>
+      <p>流れるような「M」と注釈アイコン。<br>ダイナミックで現代的。</p>
+      <div class="variations">
+        <svg viewBox="0 0 40 40">
+          <path d="M6 32 L6 10 C6 8 8 8 10 10 L20 22 L30 10 C32 8 34 8 34 10 L34 32"
+                fill="none" stroke="#0078d4" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+        <svg viewBox="0 0 40 40">
+          <path d="M6 32 L6 10 C6 8 8 8 10 10 L20 22 L30 10 C32 8 34 8 34 10 L34 32"
+                fill="none" stroke="#0078d4" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="34" cy="8" r="4" fill="#ffc107"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Concept 6: Minimal Brackets -->
+    <div class="logo-card">
+      <div class="logo-container">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <defs>
+            <linearGradient id="grad6" x1="0%" y1="50%" x2="100%" y2="50%">
+              <stop offset="0%" style="stop-color:#0078d4"/>
+              <stop offset="100%" style="stop-color:#00bcf2"/>
+            </linearGradient>
+          </defs>
+          <!-- Left bracket -->
+          <path d="M25 20 L15 20 L15 80 L25 80" fill="none" stroke="url(#grad6)" stroke-width="5" stroke-linecap="round"/>
+          <!-- Right bracket -->
+          <path d="M75 20 L85 20 L85 80 L75 80" fill="none" stroke="url(#grad6)" stroke-width="5" stroke-linecap="round"/>
+          <!-- M in center -->
+          <text x="50" y="60" text-anchor="middle" fill="#fff" font-size="36" font-weight="bold" font-family="Georgia, serif">M</text>
+          <!-- Highlight dot -->
+          <circle cx="72" cy="28" r="8" fill="#ffc107"/>
+        </svg>
+      </div>
+      <h3>Concept 6: Code Brackets</h3>
+      <p>コードブラケットで囲まれた「M」。<br>開発者向けツールを示唆。</p>
+      <div class="variations">
+        <svg viewBox="0 0 40 40">
+          <path d="M10 8 L6 8 L6 32 L10 32" fill="none" stroke="#0078d4" stroke-width="2" stroke-linecap="round"/>
+          <path d="M30 8 L34 8 L34 32 L30 32" fill="none" stroke="#0078d4" stroke-width="2" stroke-linecap="round"/>
+          <text x="20" y="24" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">M</text>
+        </svg>
+        <svg viewBox="0 0 40 40">
+          <path d="M10 8 L6 8 L6 32 L10 32" fill="none" stroke="#0078d4" stroke-width="2" stroke-linecap="round"/>
+          <path d="M30 8 L34 8 L34 32 L30 32" fill="none" stroke="#0078d4" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="32" cy="10" r="4" fill="#ffc107"/>
+        </svg>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

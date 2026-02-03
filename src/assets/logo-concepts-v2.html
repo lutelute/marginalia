@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Marginalia Logo Concepts v2</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #1e1e1e;
+      color: #ccc;
+      padding: 40px;
+    }
+    h1 { text-align: center; margin-bottom: 16px; }
+    h2 { text-align: center; color: #888; font-weight: normal; font-size: 14px; margin-bottom: 40px; }
+    .section-title {
+      font-size: 18px;
+      color: #0078d4;
+      margin: 40px 0 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #404040;
+    }
+    .logo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .logo-card {
+      background: #252526;
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .logo-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(0,120,212,0.2);
+    }
+    .logo-card.featured {
+      border: 2px solid #0078d4;
+    }
+    .logo-card h3 {
+      margin: 16px 0 6px;
+      color: #fff;
+      font-size: 14px;
+    }
+    .logo-card p {
+      font-size: 12px;
+      color: #888;
+      margin: 0;
+    }
+    .logo-container {
+      height: 100px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .size-variants {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #404040;
+    }
+    .size-variants span {
+      font-size: 10px;
+      color: #666;
+    }
+    .dark-bg {
+      background: #1e1e1e;
+      padding: 8px;
+      border-radius: 6px;
+    }
+    .light-bg {
+      background: #ffffff;
+      padding: 8px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Marginalia Logo Concepts v2</h1>
+  <h2>Concept 3 & 6 ブラッシュアップ + 追加案</h2>
+
+  <!-- Concept 3 Series -->
+  <h2 class="section-title">Concept 3 Series: Document + Comment</h2>
+  <div class="logo-grid">
+
+    <!-- 3-A: Original Refined -->
+    <div class="logo-card">
+      <div class="logo-container">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <defs>
+            <linearGradient id="doc3a" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style="stop-color:#0078d4"/>
+              <stop offset="100%" style="stop-color:#005a9e"/>
+            </linearGradient>
+            <filter id="shadow3a" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+            </filter>
+          </defs>
+          <rect x="12" y="8" width="36" height="48" rx="4" fill="url(#doc3a)" filter="url(#shadow3a)"/>
+          <line x1="20" y1="20" x2="40" y2="20" stroke="#fff" stroke-width="2" opacity="0.7"/>
+          <line x1="20" y1="28" x2="36" y2="28" stroke="#fff" stroke-width="2" opacity="0.5"/>
+          <line x1="20" y1="36" x2="40" y2="36" stroke="#fff" stroke-width="2" opacity="0.5"/>
+          <line x1="20" y1="44" x2="32" y2="44" stroke="#fff" stroke-width="2" opacity="0.5"/>
+          <path d="M44 28 Q44 20 54 20 L64 20 Q72 20 72 28 L72 40 Q72 48 64 48 L56 48 L48 56 L52 48 Q44 48 44 40 Z"
+                fill="#ffc107" filter="url(#shadow3a)"/>
+          <text x="58" y="38" text-anchor="middle" fill="#1a1a1a" font-size="14" font-weight="bold">M</text>
+        </svg>
+      </div>
+      <h3>3-A: Classic Refined</h3>
+      <p>オリジナルをシャドウで立体的に</p>
+      <div class="size-variants">
+        <div class="dark-bg">
+          <svg width="32" height="32" viewBox="0 0 80 80">
+            <rect x="12" y="8" width="36" height="48" rx="4" fill="#0078d4"/>
+            <path d="M44 28 Q44 20 54 20 L64 20 Q72 20 72 28 L72 40 Q72 48 64 48 L56 48 L48 56 L52 48 Q44 48 44 40 Z" fill="#ffc107"/>
+            <text x="58" y="38" text-anchor="middle" fill="#1a1a1a" font-size="14" font-weight="bold">M</text>
+          </svg>
+        </div>
+        <div class="light-bg">
+          <svg width="32" height="32" viewBox="0 0 80 80">
+            <rect x="12" y="8" width="36" height="48" rx="4" fill="#0078d4"/>
+            <path d="M44 28 Q44 20 54 20 L64 20 Q72 20 72 28 L72 40 Q72 48 64 48 L56 48 L48 56 L52 48 Q44 48 44 40 Z" fill="#ffc107"/>
+            <text x="58" y="38" text-anchor="middle" fill="#1a1a1a" font-size="14" font-weight="bold">M</text>
+          </svg>
+        </div>
+        <span>32px</span>
+      </div>
+    </div>
+
+    <!-- 3-B: Minimal -->
+    <div class="logo-card featured">
+      <div class="logo-container">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <rect x="16" y="12" width="32" height="44" rx="3" fill="none" stroke="#0078d4" stroke-width="3"/>
+          <line x1="22" y1="24" x2="42" y2="24" stroke="#0078d4" stroke-width="2" opacity="0.5"/>
+          <line x1="22" y1="32" x2="38" y2="32" stroke="#0078d4" stroke-width="2" opacity="0.5"/>
+          <line x1="22" y1="40" x2="42" y2="40" stroke="#0078d4" stroke-width="2" opacity="0.5"/>
+          <circle cx="56" cy="24" r="14" fill="#ffc107"/>
+          <text x="56" y="29" text-anchor="middle" fill="#1a1a1a" font-size="14" font-weight="bold">M</text>
+        </svg>
+      </div>
+      <h3>3-B: Minimal Circle</h3>
+      <p>シンプルな円形バッジ</p>
+      <div class="size-variants">
+        <div class="dark-bg">
+          <svg width="32" height="32" viewBox="0 0 80 80">
+            <rect x="16" y="12" width="32" height="44" rx="3" fill="none" stroke="#0078d4" stroke-width="3"/>
+            <circle cx="56" cy="24" r="14" fill="#ffc107"/>
+            <text x="56" y="29" text-anchor="middle" fill="#1a1a1a" font-size="14" font-weight="bold">M</text>
+          </svg>
+        </div>
+        <div class="light-bg">
+          <svg width="32" height="32" viewBox="0 0 80 80">
+            <rect x="16" y="12" width="32" height="44" rx="3" fill="none" stroke="#0078d4" stroke-width="3"/>
+            <circle cx="56" cy="24" r="14" fill="#ffc107"/>
+            <text x="56" y="29" text-anchor="middle" fill="#1a1a1a" font-size="14" font-weight="bold">M</text>
+          </svg>
+        </div>
+        <span>32px</span>
+      </div>
+    </div>
+
+    <!-- 3-C: Stacked -->
+    <div class="logo-card">
+      <div class="logo-container">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <defs>
+            <linearGradient id="doc3c" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#0078d4"/>
+              <stop offset="100%" style="stop-color:#00bcf2"/>
+            </linearGradient>
+          </defs>
+          <!-- Back doc -->
+          <rect x="20" y="8" width="32" height="44" rx="3" fill="#404040"/>
+          <!-- Front doc -->
+          <rect x="12" y="16" width="32" height="44" rx="3" fill="url(#doc3c)"/>
+          <line x1="18" y1="28" x2="38" y2="28" stroke="#fff" stroke-width="2" opacity="0.6"/>
+          <line x1="18" y1="36" x2="34" y2="36" stroke="#fff" stroke-width="2" opacity="0.4"/>
+          <line x1="18" y1="44" x2="38" y2="44" stroke="#fff" stroke-width="2" opacity="0.4"/>
+          <!-- Badge -->
+          <circle cx="56" cy="28" r="16" fill="#ffc107"/>
+          <text x="56" y="34" text-anchor="middle" fill="#1a1a1a" font-size="16" font-weight="bold">M</text>
+        </svg>
+      </div>
+      <h3>3-C: Stacked Docs</h3>
+      <p>重なったドキュメント</p>
+      <div class="size-variants">
+        <div class="dark-bg">
+          <svg width="32" height="32" viewBox="0 0 80 80">
+            <rect x="20" y="8" width="32" height="44" rx="3" fill="#404040"/>
+            <rect x="12" y="16" width="32" height="44" rx="3" fill="#0078d4"/>
+            <circle cx="56" cy="28" r="16" fill="#ffc107"/>
+            <text x="56" y="34" text-anchor="middle" fill="#1a1a1a" font-size="16" font-weight="bold">M</text>
+          </svg>
+        </div>
+        <div class="light-bg">
+          <svg width="32" height="32" viewBox="0 0 80 80">
+            <rect x="20" y="8" width="32" height="44" rx="3" fill="#ccc"/>
+            <rect x="12" y="16" width="32" height="44" rx="3" fill="#0078d4"/>
+            <circle cx="56" cy="28" r="16" fill="#ffc107"/>
+            <text x="56" y="34" text-anchor="middle" fill="#1a1a1a" font-size="16" font-weight="bold">M</text>
+          </svg>
+        </div>
+        <span>32px</span>
+      </div>
+    </div>
+
+    <!-- 3-D: Corner Badge -->
+    <div class="logo-card">
+      <div class="logo-container">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <defs>
+            <linearGradient id="doc3d" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style="stop-color:#0078d4"/>
+              <stop offset="100%" style="stop-color:#005a9e"/>
+            </linearGradient>
+          </defs>
+          <rect x="14" y="10" width="40" height="52" rx="4" fill="url(#doc3d)"/>
+          <!-- Folded corner -->
+          <path d="M42 10 L54 10 L54 22 Z" fill="#003d73"/>
+          <path d="M42 10 L42 22 L54 22 Z" fill="#004c8c"/>
+          <!-- Lines -->
+          <line x1="22" y1="28" x2="46" y2="28" stroke="#fff" stroke-width="2" opacity="0.6"/>
+          <line x1="22" y1="36" x2="42" y2="36" stroke="#fff" stroke-width="2" opacity="0.4"/>
+          <line x1="22" y1="44" x2="46" y2="44" stroke="#fff" stroke-width="2" opacity="0.4"/>
+          <line x1="22" y1="52" x2="38" y2="52" stroke="#fff" stroke-width="2" opacity="0.4"/>
+          <!-- M Badge -->
+          <circle cx="58" cy="52" r="14" fill="#ffc107"/>
+          <text x="58" y="57" text-anchor="middle" fill="#1a1a1a" font-size="14" font-weight="bold">M</text>
+        </svg>
+      </div>
+      <h3>3-D: Folded Corner</h3>
+      <p>折り目付きドキュメント</p>
+      <div class="size-variants">
+        <div class="dark-bg">
+          <svg width="32" height="32" viewBox="0 0 80 80">
+            <rect x="14" y="10" width="40" height="52" rx="4" fill="#0078d4"/>
+            <path d="M42 10 L54 10 L54 22 Z" fill="#003d73"/>
+            <path d="M42 10 L42 22 L54 22 Z" fill="#004c8c"/>
+            <circle cx="58" cy="52" r="14" fill="#ffc107"/>
+            <text x="58" y="57" text-anchor="middle" fill="#1a1a1a" font-size="14" font-weight="bold">M</text>
+          </svg>
+        </div>
+        <div class="light-bg">
+          <svg width="32" height="32" viewBox="0 0 80 80">
+            <rect x="14" y="10" width="40" height="52" rx="4" fill="#0078d4"/>
+            <path d="M42 10 L54 10 L54 22 Z" fill="#003d73"/>
+            <path d="M42 10 L42 22 L54 22 Z" fill="#004c8c"/>
+            <circle cx="58" cy="52" r="14" fill="#ffc107"/>
+            <text x="58" y="57" text-anchor="middle" fill="#1a1a1a" font-size="14" font-weight="bold">M</text>
+          </svg>
+        </div>
+        <span>32px</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Concept 6 Series -->
+  <h2 class="section-title">Concept 6 Series: Code Brackets</h2>
+  <div class="logo-grid">
+
+    <!-- 6-A: Sharp Brackets -->
+    <div class="logo-card">
+      <div class="logo-container">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <defs>
+            <linearGradient id="brk6a" x1="0%" y1="50%" x2="100%" y2="50%">
+              <stop offset="0%" style="stop-color:#0078d4"/>
+              <stop offset="100%" style="stop-color:#00bcf2"/>
+            </linearGradient>
+          </defs>
+          <path d="M20 16 L8 16 L8 64 L20 64" fill="none" stroke="url(#brk6a)" stroke-width="4" stroke-linecap="round"/>
+          <path d="M60 16 L72 16 L72 64 L60 64" fill="none" stroke="url(#brk6a)" stroke-width="4" stroke-linecap="round"/>
+          <text x="40" y="48" text-anchor="middle" fill="#fff" font-size="32" font-weight="700" font-family="Georgia, serif">M</text>
+          <circle cx="64" cy="20" r="8" fill="#ffc107"/>
+        </svg>
+      </div>
+      <h3>6-A: Sharp Brackets</h3>
+      <p>シャープなブラケット</p>
+      <div class="size-variants">
+        <div class="dark-bg">
+          <svg width="32" height="32" viewBox="0 0 80 80">
+            <path d="M20 16 L8 16 L8 64 L20 64" fill="none" stroke="#0078d4" stroke-width="4" stroke-linecap="round"/>
+            <path d="M60 16 L72 16 L72 64 L60 64" fill="none" stroke="#0078d4" stroke-width="4" stroke-linecap="round"/>
+            <text x="40" y="48" text-anchor="middle" fill="#fff" font-size="32" font-weight="700">M</text>
+            <circle cx="64" cy="20" r="8" fill="#ffc107"/>
+          </svg>
+        </div>
+        <div class="light-bg">
+          <svg width="32" height="32" viewBox="0 0 80 80">
+            <path d="M20 16 L8 16 L8 64 L20 64" fill="none" stroke="#0078d4" stroke-width="4" stroke-linecap="round"/>
+            <path d="M60 16 L72 16 L72 64 L60 64" fill="none" stroke="#0078d4" stroke-width="4" stroke-linecap="round"/>
+            <text x="40" y="48" text-anchor="middle" fill="#1a1a1a" font-size="32" font-weight="700">M</text>
+            <circle cx="64" cy="20" r="8" fill="#ffc107"/>
+          </svg>
+        </div>
+        <span>32px</span>
+      </div>
+    </div>
+
+    <!-- 6-B: Rounded Modern -->
+    <div class="logo-card featured">
+      <div class="logo-container">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <defs>
+            <linearGradient id="brk6b" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#0078d4"/>
+              <stop offset="100%" style="stop-color:#00bcf2"/>
+            </linearGradient>
+          </defs>
+          <!-- Rounded brackets -->
+          <path d="M22 12 C8 12 8 40 8 40 C8 40 8 68 22 68" fill="none" stroke="url(#brk6b)" stroke-width="4" stroke-linecap="round"/>
+          <path d="M58 12 C72 12 72 40 72 40 C72 40 72 68 58 68" fill="none" stroke="url(#brk6b)" stroke-width="4" stroke-linecap="round"/>
+          <!-- M -->
+          <text x="40" y="48" text-anchor="middle" fill="#fff" font-size="30" font-weight="600" font-family="-apple-system, sans-serif">M</text>
+          <!-- Badge -->
+          <rect x="54" y="10" width="18" height="18" rx="4" fill="#ffc107"/>
+          <text x="63" y="23" text-anchor="middle" fill="#1a1a1a" font-size="10" font-weight="bold">!</text>
+        </svg>
+      </div>
+      <h3>6-B: Rounded Modern</h3>
+      <p>丸みのあるモダンデザイン</p>
+      <div class="size-variants">
+        <div class="dark-bg">
+          <svg width="32" height="32" viewBox="0 0 80 80">
+            <path d="M22 12 C8 12 8 40 8 40 C8 40 8 68 22 68" fill="none" stroke="#0078d4" stroke-width="4" stroke-linecap="round"/>
+            <path d="M58 12 C72 12 72 40 72 40 C72 40 72 68 58 68" fill="none" stroke="#0078d4" stroke-width="4" stroke-linecap="round"/>
+            <text x="40" y="48" text-anchor="middle" fill="#fff" font-size="30" font-weight="600">M</text>
+            <rect x="54" y="10" width="18" height="18" rx="4" fill="#ffc107"/>
+          </svg>
+        </div>
+        <div class="light-bg">
+          <svg width="32" height="32" viewBox="0 0 80 80">
+            <path d="M22 12 C8 12 8 40 8 40 C8 40 8 68 22 68" fill="none" stroke="#0078d4" stroke-width="4" stroke-linecap="round"/>
+            <path d="M58 12 C72 12 72 40 72 40 C72 40 72 68 58 68" fill="none" stroke="#0078d4" stroke-width="4" stroke-linecap="round"/>
+            <text x="40" y="48" text-anchor="middle" fill="#1a1a1a" font-size="30" font-weight="600">M</text>
+            <rect x="54" y="10" width="18" height="18" rx="4" fill="#ffc107"/>
+          </svg>
+        </div>
+        <span>32px</span>
+      </div>
+    </div>
+
+    <!-- 6-C: Filled Background -->
+    <div class="logo-card">
+      <div class="logo-container">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <defs>
+            <linearGradient id="bg6c" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#0078d4"/>
+              <stop offset="100%" style="stop-color:#005a9e"/>
+            </linearGradient>
+          </defs>
+          <!-- Background -->
+          <rect x="4" y="8" width="72" height="64" rx="8" fill="url(#bg6c)"/>
+          <!-- Brackets -->
+          <path d="M20 20 L12 20 L12 60 L20 60" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+          <path d="M60 20 L68 20 L68 60 L60 60" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+          <!-- M -->
+          <text x="40" y="48" text-anchor="middle" fill="#fff" font-size="28" font-weight="700">M</text>
+          <!-- Badge -->
+          <circle cx="64" cy="16" r="10" fill="#ffc107"/>
+          <text x="64" y="20" text-anchor="middle" fill="#1a1a1a" font-size="10" font-weight="bold">3</text>
+        </svg>
+      </div>
+      <h3>6-C: Filled Box</h3>
+      <p>塗りつぶし背景</p>
+      <div class="size-variants">
+        <div class="dark-bg">
+          <svg width="32" height="32" viewBox="0 0 80 80">
+            <rect x="4" y="8" width="72" height="64" rx="8" fill="#0078d4"/>
+            <path d="M20 20 L12 20 L12 60 L20 60" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+            <path d="M60 20 L68 20 L68 60 L60 60" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+            <text x="40" y="48" text-anchor="middle" fill="#fff" font-size="28" font-weight="700">M</text>
+            <circle cx="64" cy="16" r="10" fill="#ffc107"/>
+          </svg>
+        </div>
+        <div class="light-bg">
+          <svg width="32" height="32" viewBox="0 0 80 80">
+            <rect x="4" y="8" width="72" height="64" rx="8" fill="#0078d4"/>
+            <path d="M20 20 L12 20 L12 60 L20 60" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+            <path d="M60 20 L68 20 L68 60 L60 60" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+            <text x="40" y="48" text-anchor="middle" fill="#fff" font-size="28" font-weight="700">M</text>
+            <circle cx="64" cy="16" r="10" fill="#ffc107"/>
+          </svg>
+        </div>
+        <span>32px</span>
+      </div>
+    </div>
+
+    <!-- 6-D: Angle Brackets -->
+    <div class="logo-card">
+      <div class="logo-container">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <defs>
+            <linearGradient id="brk6d" x1="0%" y1="50%" x2="100%" y2="50%">
+              <stop offset="0%" style="stop-color:#0078d4"/>
+              <stop offset="100%" style="stop-color:#00bcf2"/>
+            </linearGradient>
+          </defs>
+          <!-- Angle brackets < > -->
+          <path d="M24 16 L8 40 L24 64" fill="none" stroke="url(#brk6d)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M56 16 L72 40 L56 64" fill="none" stroke="url(#brk6d)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- M -->
+          <text x="40" y="48" text-anchor="middle" fill="#fff" font-size="28" font-weight="700" font-family="Monaco, monospace">M</text>
+          <!-- Badge -->
+          <circle cx="62" cy="18" r="9" fill="#ffc107"/>
+        </svg>
+      </div>
+      <h3>6-D: Angle Brackets</h3>
+      <p>HTMLタグ風アングル</p>
+      <div class="size-variants">
+        <div class="dark-bg">
+          <svg width="32" height="32" viewBox="0 0 80 80">
+            <path d="M24 16 L8 40 L24 64" fill="none" stroke="#0078d4" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M56 16 L72 40 L56 64" fill="none" stroke="#0078d4" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+            <text x="40" y="48" text-anchor="middle" fill="#fff" font-size="28" font-weight="700">M</text>
+            <circle cx="62" cy="18" r="9" fill="#ffc107"/>
+          </svg>
+        </div>
+        <div class="light-bg">
+          <svg width="32" height="32" viewBox="0 0 80 80">
+            <path d="M24 16 L8 40 L24 64" fill="none" stroke="#0078d4" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M56 16 L72 40 L56 64" fill="none" stroke="#0078d4" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+            <text x="40" y="48" text-anchor="middle" fill="#1a1a1a" font-size="28" font-weight="700">M</text>
+            <circle cx="62" cy="18" r="9" fill="#ffc107"/>
+          </svg>
+        </div>
+        <span>32px</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Hybrid Concepts -->
+  <h2 class="section-title">Hybrid: 3 + 6 融合案</h2>
+  <div class="logo-grid">
+
+    <!-- Hybrid A -->
+    <div class="logo-card featured">
+      <div class="logo-container">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <defs>
+            <linearGradient id="hyb1" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#0078d4"/>
+              <stop offset="100%" style="stop-color:#00bcf2"/>
+            </linearGradient>
+          </defs>
+          <!-- Document outline with bracket style -->
+          <path d="M16 8 L8 8 L8 72 L16 72" fill="none" stroke="url(#hyb1)" stroke-width="4" stroke-linecap="round"/>
+          <rect x="16" y="8" width="40" height="64" rx="2" fill="none" stroke="url(#hyb1)" stroke-width="3"/>
+          <!-- Text lines -->
+          <line x1="22" y1="24" x2="50" y2="24" stroke="#0078d4" stroke-width="2" opacity="0.4"/>
+          <line x1="22" y1="34" x2="46" y2="34" stroke="#0078d4" stroke-width="2" opacity="0.4"/>
+          <line x1="22" y1="44" x2="50" y2="44" stroke="#0078d4" stroke-width="2" opacity="0.4"/>
+          <line x1="22" y1="54" x2="42" y2="54" stroke="#0078d4" stroke-width="2" opacity="0.4"/>
+          <!-- M Badge -->
+          <circle cx="62" cy="24" r="14" fill="#ffc107"/>
+          <text x="62" y="30" text-anchor="middle" fill="#1a1a1a" font-size="16" font-weight="bold">M</text>
+        </svg>
+      </div>
+      <h3>Hybrid A: Doc + Bracket</h3>
+      <p>ドキュメント＋左ブラケット</p>
+      <div class="size-variants">
+        <div class="dark-bg">
+          <svg width="32" height="32" viewBox="0 0 80 80">
+            <path d="M16 8 L8 8 L8 72 L16 72" fill="none" stroke="#0078d4" stroke-width="4" stroke-linecap="round"/>
+            <rect x="16" y="8" width="40" height="64" rx="2" fill="none" stroke="#0078d4" stroke-width="3"/>
+            <circle cx="62" cy="24" r="14" fill="#ffc107"/>
+            <text x="62" y="30" text-anchor="middle" fill="#1a1a1a" font-size="16" font-weight="bold">M</text>
+          </svg>
+        </div>
+        <div class="light-bg">
+          <svg width="32" height="32" viewBox="0 0 80 80">
+            <path d="M16 8 L8 8 L8 72 L16 72" fill="none" stroke="#0078d4" stroke-width="4" stroke-linecap="round"/>
+            <rect x="16" y="8" width="40" height="64" rx="2" fill="none" stroke="#0078d4" stroke-width="3"/>
+            <circle cx="62" cy="24" r="14" fill="#ffc107"/>
+            <text x="62" y="30" text-anchor="middle" fill="#1a1a1a" font-size="16" font-weight="bold">M</text>
+          </svg>
+        </div>
+        <span>32px</span>
+      </div>
+    </div>
+
+    <!-- Hybrid B -->
+    <div class="logo-card">
+      <div class="logo-container">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <defs>
+            <linearGradient id="hyb2" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style="stop-color:#0078d4"/>
+              <stop offset="100%" style="stop-color:#005a9e"/>
+            </linearGradient>
+          </defs>
+          <!-- Filled doc -->
+          <rect x="8" y="12" width="44" height="56" rx="4" fill="url(#hyb2)"/>
+          <!-- Bracket overlay -->
+          <path d="M16 20 L12 20 L12 60 L16 60" fill="none" stroke="#fff" stroke-width="2" opacity="0.6"/>
+          <!-- Lines -->
+          <line x1="22" y1="28" x2="44" y2="28" stroke="#fff" stroke-width="2" opacity="0.5"/>
+          <line x1="22" y1="38" x2="40" y2="38" stroke="#fff" stroke-width="2" opacity="0.4"/>
+          <line x1="22" y1="48" x2="44" y2="48" stroke="#fff" stroke-width="2" opacity="0.4"/>
+          <!-- Comment bubble -->
+          <path d="M52 20 Q52 12 62 12 L70 12 Q78 12 78 20 L78 32 Q78 40 70 40 L64 40 L56 48 L60 40 Q52 40 52 32 Z" fill="#ffc107"/>
+          <text x="65" y="30" text-anchor="middle" fill="#1a1a1a" font-size="14" font-weight="bold">M</text>
+        </svg>
+      </div>
+      <h3>Hybrid B: Full Combo</h3>
+      <p>全要素を組み合わせ</p>
+      <div class="size-variants">
+        <div class="dark-bg">
+          <svg width="32" height="32" viewBox="0 0 80 80">
+            <rect x="8" y="12" width="44" height="56" rx="4" fill="#0078d4"/>
+            <path d="M16 20 L12 20 L12 60 L16 60" fill="none" stroke="#fff" stroke-width="2" opacity="0.6"/>
+            <path d="M52 20 Q52 12 62 12 L70 12 Q78 12 78 20 L78 32 Q78 40 70 40 L64 40 L56 48 L60 40 Q52 40 52 32 Z" fill="#ffc107"/>
+            <text x="65" y="30" text-anchor="middle" fill="#1a1a1a" font-size="14" font-weight="bold">M</text>
+          </svg>
+        </div>
+        <div class="light-bg">
+          <svg width="32" height="32" viewBox="0 0 80 80">
+            <rect x="8" y="12" width="44" height="56" rx="4" fill="#0078d4"/>
+            <path d="M16 20 L12 20 L12 60 L16 60" fill="none" stroke="#fff" stroke-width="2" opacity="0.6"/>
+            <path d="M52 20 Q52 12 62 12 L70 12 Q78 12 78 20 L78 32 Q78 40 70 40 L64 40 L56 48 L60 40 Q52 40 52 32 Z" fill="#ffc107"/>
+            <text x="65" y="30" text-anchor="middle" fill="#1a1a1a" font-size="14" font-weight="bold">M</text>
+          </svg>
+        </div>
+        <span>32px</span>
+      </div>
+    </div>
+
+    <!-- Hybrid C: Ultra Minimal -->
+    <div class="logo-card featured">
+      <div class="logo-container">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <!-- Simple square doc -->
+          <rect x="12" y="12" width="40" height="52" rx="4" fill="none" stroke="#0078d4" stroke-width="3"/>
+          <!-- Margin line -->
+          <line x1="24" y1="16" x2="24" y2="60" stroke="#0078d4" stroke-width="2" opacity="0.3"/>
+          <!-- M in circle -->
+          <circle cx="58" cy="28" r="16" fill="#0078d4"/>
+          <text x="58" y="34" text-anchor="middle" fill="#fff" font-size="16" font-weight="bold">M</text>
+          <!-- Notification dot -->
+          <circle cx="70" cy="16" r="6" fill="#ffc107"/>
+        </svg>
+      </div>
+      <h3>Hybrid C: Ultra Minimal</h3>
+      <p>超シンプル・クリーン</p>
+      <div class="size-variants">
+        <div class="dark-bg">
+          <svg width="32" height="32" viewBox="0 0 80 80">
+            <rect x="12" y="12" width="40" height="52" rx="4" fill="none" stroke="#0078d4" stroke-width="3"/>
+            <line x1="24" y1="16" x2="24" y2="60" stroke="#0078d4" stroke-width="2" opacity="0.3"/>
+            <circle cx="58" cy="28" r="16" fill="#0078d4"/>
+            <text x="58" y="34" text-anchor="middle" fill="#fff" font-size="16" font-weight="bold">M</text>
+            <circle cx="70" cy="16" r="6" fill="#ffc107"/>
+          </svg>
+        </div>
+        <div class="light-bg">
+          <svg width="32" height="32" viewBox="0 0 80 80">
+            <rect x="12" y="12" width="40" height="52" rx="4" fill="none" stroke="#0078d4" stroke-width="3"/>
+            <line x1="24" y1="16" x2="24" y2="60" stroke="#0078d4" stroke-width="2" opacity="0.3"/>
+            <circle cx="58" cy="28" r="16" fill="#0078d4"/>
+            <text x="58" y="34" text-anchor="middle" fill="#fff" font-size="16" font-weight="bold">M</text>
+            <circle cx="70" cy="16" r="6" fill="#ffc107"/>
+          </svg>
+        </div>
+        <span>32px</span>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>

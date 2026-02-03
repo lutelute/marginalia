@@ -1,0 +1,81 @@
+{
+  "name": "marginalia",
+  "version": "1.0.0",
+  "description": "Markdown編集ツール - 校閲・コメント・バージョン管理機能付き",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "cross-env NODE_ENV=development concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "build": "vite build",
+    "build:prod": "cross-env NODE_ENV=production vite build",
+    "preview": "vite preview",
+    "electron": "electron .",
+    "electron:prod": "cross-env NODE_ENV=production electron .",
+    "start": "npm run build:prod && npm run electron:prod",
+    "package:mac": "npm run build:prod && electron-builder --mac",
+    "package:win": "npm run build:prod && electron-builder --win",
+    "package:linux": "npm run build:prod && electron-builder --linux"
+  },
+  "keywords": [
+    "markdown",
+    "editor",
+    "electron",
+    "annotation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1",
+    "vite": "^5.0.10",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.marginalia.app",
+    "productName": "Marginalia",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icon.icns",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    }
+  },
+  "dependencies": {
+    "@codemirror/lang-markdown": "^6.2.3",
+    "@codemirror/language-data": "^6.4.1",
+    "@codemirror/state": "^6.4.0",
+    "@codemirror/view": "^6.23.0",
+    "codemirror": "^6.0.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-markdown": "^9.0.1",
+    "remark-gfm": "^4.0.0",
+    "uuid": "^9.0.1"
+  }
+}
