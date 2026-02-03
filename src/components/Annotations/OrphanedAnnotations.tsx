@@ -1,5 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { useAnnotation } from '../../contexts/AnnotationContext';
+import { useFile } from '../../contexts/FileContext';
+import { OrphanedFileData } from '../../types';
 
 const ANNOTATION_TYPES = [
   { id: 'comment', label: 'コメント', icon: '💬', color: 'var(--comment-color)' },
@@ -17,8 +19,18 @@ function OrphanedAnnotations() {
     reassignAnnotation,
   } = useAnnotation();
 
+  const {
+    orphanedFiles,
+    exportOrphanedFile,
+    deleteOrphanedFile,
+    openFile,
+    fileTree,
+  } = useFile();
+
   const [reassignMode, setReassignMode] = useState<string | null>(null);
   const [newText, setNewText] = useState('');
+  const [fileReassignMode, setFileReassignMode] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<string>('');
 
   const handleKeep = useCallback((id: string) => {
     keepAnnotation(id);
@@ -48,14 +60,46 @@ function OrphanedAnnotations() {
     setNewText('');
   }, []);
 
+  // 孤立ファイル関連のハンドラ
+  const handleExportFile = useCallback((file: OrphanedFileData) => {
+    exportOrphanedFile(file);
+  }, [exportOrphanedFile]);
+
+  const handleDeleteFile = useCallback(async (file: OrphanedFileData) => {
+    if (confirm(`"${file.fileName}" の注釈データを削除しますか？この操作は取り消せません。`)) {
+      await deleteOrphanedFile(file);
+    }
+  }, [deleteOrphanedFile]);
+
+  // ファイルツリーから.mdファイルを抽出
+  const getMdFiles = useCallback((tree: any[]): { path: string; name: string }[] => {
+    const files: { path: string; name: string }[] = [];
+
+    const traverse = (nodes: any[]) => {
+      for (const node of nodes) {
+        if (node.type === 'file' && (node.name.endsWith('.md') || node.name.endsWith('.markdown'))) {
+          files.push({ path: node.path, name: node.name });
+        } else if (node.type === 'directory' && node.children) {
+          traverse(node.children);
+        }
+      }
+    };
+
+    traverse(tree);
+    return files;
+  }, []);
+
+  const mdFiles = getMdFiles(fileTree || []);
+
   const totalOrphaned = orphanedAnnotations.length;
   const totalKept = keptAnnotations.length;
+  const totalOrphanedFiles = orphanedFiles?.length || 0;
 
-  if (totalOrphaned === 0 && totalKept === 0) {
+  if (totalOrphaned === 0 && totalKept === 0 && totalOrphanedFiles === 0) {
     return (
       <div className="orphaned-empty">
         <div className="empty-icon">✓</div>
-        <div className="empty-text">孤立した注釈はありません</div>
+        <div className="empty-text">孤立した注釈・ファイルはありません</div>
         <style>{styles}</style>
       </div>
     );
@@ -205,6 +249,73 @@ function OrphanedAnnotations() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {totalOrphanedFiles > 0 && (
+        <div className="orphaned-files-section">
+          <div className="section-header file-missing">
+            <span className="section-icon">📁</span>
+            <span className="section-title">削除されたファイルの注釈 ({totalOrphanedFiles}件)</span>
+          </div>
+          <div className="section-description">
+            元のMarkdownファイルが削除されましたが、注釈データは残っています。
+          </div>
+          <div className="orphaned-files-list">
+            {orphanedFiles.map((file) => (
+              <div key={file.filePath} className="orphaned-file-item">
+                <div className="file-header">
+                  <span className="file-icon">📄</span>
+                  <span className="file-name">{file.fileName}</span>
+                </div>
+
+                <div className="file-info">
+                  <div className="info-row">
+                    <span className="info-label">注釈数:</span>
+                    <span className="info-value">{file.annotations.length}件</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">最終更新:</span>
+                    <span className="info-value">
+                      {new Date(file.lastModified).toLocaleString('ja-JP')}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="file-preview">
+                  <div className="preview-title">注釈プレビュー:</div>
+                  {file.annotations.slice(0, 3).map((a, i) => (
+                    <div key={i} className="preview-item">
+                      <span className="preview-text">"{a.selectedText?.slice(0, 30)}..."</span>
+                      <span className="preview-content">{a.content?.slice(0, 50)}...</span>
+                    </div>
+                  ))}
+                  {file.annotations.length > 3 && (
+                    <div className="preview-more">
+                      他 {file.annotations.length - 3} 件...
+                    </div>
+                  )}
+                </div>
+
+                <div className="file-actions">
+                  <button
+                    className="btn-export"
+                    onClick={() => handleExportFile(file)}
+                    title="JSONとしてエクスポート"
+                  >
+                    📤 エクスポート
+                  </button>
+                  <button
+                    className="btn-delete"
+                    onClick={() => handleDeleteFile(file)}
+                    title="注釈データを削除"
+                  >
+                    🗑️ 削除
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -426,6 +537,121 @@ const styles = `
 
   .btn-cancel:hover {
     background-color: var(--bg-hover);
+  }
+
+  /* 孤立ファイルセクション */
+  .orphaned-files-section {
+    margin-top: 20px;
+  }
+
+  .section-header.file-missing {
+    background-color: rgba(156, 39, 176, 0.15);
+    color: var(--review-color);
+  }
+
+  .orphaned-files-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .orphaned-file-item {
+    background-color: var(--bg-tertiary);
+    border-radius: 8px;
+    padding: 12px;
+    border-left: 3px solid var(--review-color);
+  }
+
+  .file-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .file-icon {
+    font-size: 18px;
+  }
+
+  .file-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .file-info {
+    margin-bottom: 10px;
+  }
+
+  .info-row {
+    display: flex;
+    gap: 8px;
+    font-size: 11px;
+    margin-bottom: 4px;
+  }
+
+  .info-label {
+    color: var(--text-muted);
+  }
+
+  .info-value {
+    color: var(--text-secondary);
+  }
+
+  .file-preview {
+    background-color: var(--bg-secondary);
+    border-radius: 4px;
+    padding: 8px;
+    margin-bottom: 10px;
+  }
+
+  .preview-title {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  .preview-item {
+    font-size: 11px;
+    margin-bottom: 4px;
+    padding-left: 8px;
+    border-left: 2px solid var(--border-color);
+  }
+
+  .preview-text {
+    color: var(--text-secondary);
+    font-style: italic;
+  }
+
+  .preview-content {
+    display: block;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .preview-more {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-style: italic;
+    margin-top: 4px;
+  }
+
+  .file-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .btn-export {
+    background-color: var(--accent-color);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 11px;
+  }
+
+  .btn-export:hover {
+    filter: brightness(1.1);
   }
 `;
 

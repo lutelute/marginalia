@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useReducer, useCallback, useState, useEffect } from 'react';
+import { OrphanedFileData } from '../types';
 
 const FileContext = createContext(null);
 
@@ -18,6 +19,7 @@ const initialState = {
   error: null,
   externalChangeDetected: false,
   lastKnownMtime: null as string | null,
+  orphanedFiles: [] as OrphanedFileData[], // 削除されたファイルの注釈データ
 };
 
 function fileReducer(state, action) {
@@ -107,6 +109,20 @@ function fileReducer(state, action) {
       return {
         ...state,
         lastKnownMtime: action.payload,
+      };
+
+    case 'SET_ORPHANED_FILES':
+      return {
+        ...state,
+        orphanedFiles: action.payload,
+      };
+
+    case 'REMOVE_ORPHANED_FILE':
+      return {
+        ...state,
+        orphanedFiles: state.orphanedFiles.filter(
+          (f) => f.filePath !== action.payload
+        ),
       };
 
     default:
@@ -226,10 +242,13 @@ export function FileProvider({ children }) {
       dispatch({ type: 'SET_LOADING', payload: true });
       const tree = await window.electronAPI.readDirectory(state.rootPath);
       dispatch({ type: 'SET_FILE_TREE', payload: tree });
+
+      // 孤立ファイルを検出
+      detectOrphanedFiles(state.rootPath);
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error.message });
     }
-  }, [state.rootPath]);
+  }, [state.rootPath, detectOrphanedFiles]);
 
   const openFile = useCallback(async (filePath) => {
     try {
@@ -307,6 +326,138 @@ export function FileProvider({ children }) {
     dispatch({ type: 'CLEAR_EXTERNAL_CHANGE' });
   }, []);
 
+  // 孤立ファイル（.marginaliaのみ存在）を検出
+  const detectOrphanedFiles = useCallback(async (dirPath: string) => {
+    if (!dirPath) return;
+
+    try {
+      // ディレクトリ内の全ファイルを再帰的に取得
+      const findMarginaliaFiles = async (path: string): Promise<string[]> => {
+        const result = await window.electronAPI.readDirectory(path);
+        if (!result || !Array.isArray(result)) return [];
+
+        const marginaliaFiles: string[] = [];
+
+        for (const item of result) {
+          if (item.type === 'directory' && item.children) {
+            const subFiles = await findMarginaliaFiles(item.path);
+            marginaliaFiles.push(...subFiles);
+          } else if (item.type === 'file' && item.name.endsWith('.marginalia')) {
+            marginaliaFiles.push(item.path);
+          }
+        }
+
+        return marginaliaFiles;
+      };
+
+      const marginaliaFiles = await findMarginaliaFiles(dirPath);
+      const orphaned: OrphanedFileData[] = [];
+
+      for (const marginaliaPath of marginaliaFiles) {
+        // 対応する.mdファイルのパスを計算
+        const mdPath = marginaliaPath.replace(/\.marginalia$/, '');
+
+        // .mdファイルが存在するかチェック
+        const exists = await window.electronAPI.exists(mdPath);
+
+        if (!exists) {
+          // .marginaliaファイルの内容を読み込み
+          const result = await window.electronAPI.readMarginalia(mdPath);
+
+          if (result?.success && result.data) {
+            orphaned.push({
+              filePath: mdPath,
+              fileName: mdPath.split('/').pop() || 'unknown',
+              lastModified: result.data.lastModified || new Date().toISOString(),
+              annotations: result.data.annotations || [],
+              history: result.data.history || [],
+            });
+          }
+        }
+      }
+
+      dispatch({ type: 'SET_ORPHANED_FILES', payload: orphaned });
+    } catch (error) {
+      console.error('Failed to detect orphaned files:', error);
+    }
+  }, []);
+
+  // 孤立ファイルの注釈をエクスポート
+  const exportOrphanedFile = useCallback((orphanedFile: OrphanedFileData) => {
+    const data = {
+      _exported: true,
+      _exportedAt: new Date().toISOString(),
+      originalFilePath: orphanedFile.filePath,
+      originalFileName: orphanedFile.fileName,
+      annotations: orphanedFile.annotations,
+      history: orphanedFile.history,
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${orphanedFile.fileName.replace('.md', '')}_annotations.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, []);
+
+  // 孤立ファイルを別ファイルに関連付け
+  const reassignOrphanedFile = useCallback(async (
+    orphanedFile: OrphanedFileData,
+    newFilePath: string
+  ) => {
+    try {
+      // 新しいファイルに注釈データを書き込み
+      const data = {
+        _tool: 'marginalia',
+        _version: '1.0.0',
+        filePath: newFilePath,
+        fileName: newFilePath.split('/').pop(),
+        lastModified: new Date().toISOString(),
+        annotations: orphanedFile.annotations.map(a => ({
+          ...a,
+          status: 'orphaned', // 再割当後は孤立状態からスタート
+        })),
+        history: orphanedFile.history,
+      };
+
+      await window.electronAPI.writeMarginalia(newFilePath, data);
+
+      // 古い.marginaliaファイルを削除
+      const oldMarginaliaPath = orphanedFile.filePath + '.marginalia';
+      // Note: deleteFile APIが必要かもしれませんが、ここでは孤立リストから削除のみ
+
+      dispatch({ type: 'REMOVE_ORPHANED_FILE', payload: orphanedFile.filePath });
+
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to reassign orphaned file:', error);
+      return { success: false, error: error.message };
+    }
+  }, []);
+
+  // 孤立ファイルを削除（.marginaliaファイルを削除）
+  const deleteOrphanedFile = useCallback(async (orphanedFile: OrphanedFileData) => {
+    try {
+      // .marginaliaファイルを削除
+      const marginaliaPath = orphanedFile.filePath + '.marginalia';
+
+      // deleteBackupを流用（または専用のdelete APIが必要）
+      const result = await window.electronAPI.deleteBackup(marginaliaPath);
+
+      if (result?.success) {
+        dispatch({ type: 'REMOVE_ORPHANED_FILE', payload: orphanedFile.filePath });
+        return { success: true };
+      } else {
+        return { success: false, error: result?.error || 'Failed to delete file' };
+      }
+    } catch (error) {
+      console.error('Failed to delete orphaned file:', error);
+      return { success: false, error: error.message };
+    }
+  }, []);
+
   // 定期的に外部変更をチェック（5秒ごと）
   useEffect(() => {
     if (!state.currentFile) return;
@@ -357,6 +508,11 @@ export function FileProvider({ children }) {
     checkExternalChange,
     reloadFile,
     clearExternalChange,
+    // 孤立ファイル管理
+    detectOrphanedFiles,
+    exportOrphanedFile,
+    reassignOrphanedFile,
+    deleteOrphanedFile,
   };
 
   return <FileContext.Provider value={value}>{children}</FileContext.Provider>;
