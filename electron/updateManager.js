@@ -14,7 +14,7 @@ let downloadedFilePath = null;
 
 // GitHub リポジトリ情報
 const GITHUB_OWNER = 'lutelute';
-const GITHUB_REPO = 'marginalia_ac';
+const GITHUB_REPO = 'Marginalia';
 
 /**
  * アップデートファイルの保存先ディレクトリを取得
