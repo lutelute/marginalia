@@ -235,6 +235,62 @@ export function FileProvider({ children }) {
     }
   }, []);
 
+  // 孤立ファイル（.marginaliaのみ存在）を検出
+  const detectOrphanedFiles = useCallback(async (dirPath: string) => {
+    if (!dirPath) return;
+
+    try {
+      // ディレクトリ内の全ファイルを再帰的に取得
+      const findMarginaliaFiles = async (path: string): Promise<string[]> => {
+        const result = await window.electronAPI.readDirectory(path);
+        if (!result || !Array.isArray(result)) return [];
+
+        const marginaliaFiles: string[] = [];
+
+        for (const item of result) {
+          if (item.type === 'directory' && item.children) {
+            const subFiles = await findMarginaliaFiles(item.path);
+            marginaliaFiles.push(...subFiles);
+          } else if (item.type === 'file' && item.name.endsWith('.marginalia')) {
+            marginaliaFiles.push(item.path);
+          }
+        }
+
+        return marginaliaFiles;
+      };
+
+      const marginaliaFiles = await findMarginaliaFiles(dirPath);
+      const orphaned: OrphanedFileData[] = [];
+
+      for (const marginaliaPath of marginaliaFiles) {
+        // 対応する.mdファイルのパスを計算
+        const mdPath = marginaliaPath.replace(/\.marginalia$/, '');
+
+        // .mdファイルが存在するかチェック
+        const exists = await window.electronAPI.exists(mdPath);
+
+        if (!exists) {
+          // .marginaliaファイルの内容を読み込み
+          const result = await window.electronAPI.readMarginalia(mdPath);
+
+          if (result?.success && result.data) {
+            orphaned.push({
+              filePath: mdPath,
+              fileName: mdPath.split('/').pop() || 'unknown',
+              lastModified: result.data.lastModified || new Date().toISOString(),
+              annotations: result.data.annotations || [],
+              history: result.data.history || [],
+            });
+          }
+        }
+      }
+
+      dispatch({ type: 'SET_ORPHANED_FILES', payload: orphaned });
+    } catch (error) {
+      console.error('Failed to detect orphaned files:', error);
+    }
+  }, []);
+
   const refreshDirectory = useCallback(async () => {
     if (!state.rootPath) return;
 
@@ -324,62 +380,6 @@ export function FileProvider({ children }) {
   // 外部変更フラグをクリア
   const clearExternalChange = useCallback(() => {
     dispatch({ type: 'CLEAR_EXTERNAL_CHANGE' });
-  }, []);
-
-  // 孤立ファイル（.marginaliaのみ存在）を検出
-  const detectOrphanedFiles = useCallback(async (dirPath: string) => {
-    if (!dirPath) return;
-
-    try {
-      // ディレクトリ内の全ファイルを再帰的に取得
-      const findMarginaliaFiles = async (path: string): Promise<string[]> => {
-        const result = await window.electronAPI.readDirectory(path);
-        if (!result || !Array.isArray(result)) return [];
-
-        const marginaliaFiles: string[] = [];
-
-        for (const item of result) {
-          if (item.type === 'directory' && item.children) {
-            const subFiles = await findMarginaliaFiles(item.path);
-            marginaliaFiles.push(...subFiles);
-          } else if (item.type === 'file' && item.name.endsWith('.marginalia')) {
-            marginaliaFiles.push(item.path);
-          }
-        }
-
-        return marginaliaFiles;
-      };
-
-      const marginaliaFiles = await findMarginaliaFiles(dirPath);
-      const orphaned: OrphanedFileData[] = [];
-
-      for (const marginaliaPath of marginaliaFiles) {
-        // 対応する.mdファイルのパスを計算
-        const mdPath = marginaliaPath.replace(/\.marginalia$/, '');
-
-        // .mdファイルが存在するかチェック
-        const exists = await window.electronAPI.exists(mdPath);
-
-        if (!exists) {
-          // .marginaliaファイルの内容を読み込み
-          const result = await window.electronAPI.readMarginalia(mdPath);
-
-          if (result?.success && result.data) {
-            orphaned.push({
-              filePath: mdPath,
-              fileName: mdPath.split('/').pop() || 'unknown',
-              lastModified: result.data.lastModified || new Date().toISOString(),
-              annotations: result.data.annotations || [],
-              history: result.data.history || [],
-            });
-          }
-        }
-      }
-
-      dispatch({ type: 'SET_ORPHANED_FILES', payload: orphaned });
-    } catch (error) {
-      console.error('Failed to detect orphaned files:', error);
-    }
   }, []);
 
   // 孤立ファイルの注釈をエクスポート
