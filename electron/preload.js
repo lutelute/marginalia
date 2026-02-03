@@ -27,4 +27,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ユーティリティ
   exists: (filePath) => ipcRenderer.invoke('fs:exists', filePath),
   getFileStats: (filePath) => ipcRenderer.invoke('fs:getFileStats', filePath),
+
+  // アップデート操作
+  checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  downloadUpdate: () => ipcRenderer.invoke('update:download'),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+  getAppVersion: () => ipcRenderer.invoke('app:getVersion'),
+
+  // アップデートイベントリスナー
+  onUpdateStatus: (callback) => {
+    ipcRenderer.on('update-status', (event, data) => callback(data));
+    return () => ipcRenderer.removeAllListeners('update-status');
+  },
 });

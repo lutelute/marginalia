@@ -1,14 +1,18 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { User, USER_COLORS } from '../types';
+import { User, USER_COLORS, UpdateStatus } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 const SettingsContext = createContext(null);
 
 // 環境判定（ビルド時に決定）
 const IS_DEVELOPMENT = import.meta.env.DEV;
-const APP_VERSION = '1.0.7';
-const GITHUB_REPO = 'lutelute/Marginalia_simple';
-const GITHUB_API_TIMEOUT = 5000; // 5秒タイムアウト
+const APP_VERSION = '1.0.8';
+const GITHUB_REPO = 'lutelute/Marginalia';
+
+// Electronアプリかどうかを判定
+const isElectron = () => {
+  return typeof window !== 'undefined' && window.electronAPI !== undefined;
+};
 
 // デフォルトユーザー
 const DEFAULT_USER: User = {
@@ -182,65 +186,84 @@ export function SettingsProvider({ children }) {
   // アップデート確認
   const [updateInfo, setUpdateInfo] = useState(null);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+
+  // Electronアップデートイベントを監視
+  useEffect(() => {
+    if (!isElectron()) return;
+
+    const cleanup = window.electronAPI?.onUpdateStatus((data: UpdateStatus) => {
+      setUpdateStatus(data);
+
+      switch (data.status) {
+        case 'checking':
+          setIsCheckingUpdate(true);
+          break;
+        case 'available':
+          setIsCheckingUpdate(false);
+          setUpdateInfo({
+            hasUpdate: true,
+            currentVersion: APP_VERSION,
+            latestVersion: data.version,
+            releaseName: data.releaseName,
+            error: null,
+          });
+          break;
+        case 'not-available':
+          setIsCheckingUpdate(false);
+          setUpdateInfo({
+            hasUpdate: false,
+            currentVersion: APP_VERSION,
+            latestVersion: data.version,
+            error: null,
+          });
+          break;
+        case 'downloading':
+          setIsDownloading(true);
+          setDownloadProgress(data.percent);
+          break;
+        case 'downloaded':
+          setIsDownloading(false);
+          setDownloadProgress(100);
+          break;
+        case 'error':
+          setIsCheckingUpdate(false);
+          setIsDownloading(false);
+          setUpdateInfo({
+            hasUpdate: false,
+            currentVersion: APP_VERSION,
+            latestVersion: APP_VERSION,
+            error: data.message,
+          });
+          break;
+      }
+    });
+
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, []);
 
   const checkForUpdates = useCallback(async () => {
-    setIsCheckingUpdate(true);
-    try {
-      // タイムアウト付きfetch
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), GITHUB_API_TIMEOUT);
-
-      const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
-        signal: controller.signal,
-        headers: {
-          'Accept': 'application/vnd.github.v3+json',
-        },
-      });
-
-      clearTimeout(timeoutId);
-
-      if (response.ok) {
-        const data = await response.json();
-        const latestVersion = data.tag_name?.replace('v', '') || '';
-        const hasUpdate = latestVersion && latestVersion !== APP_VERSION;
-        setUpdateInfo({
-          hasUpdate,
-          currentVersion: APP_VERSION,
-          latestVersion: latestVersion || APP_VERSION,
-          releaseUrl: data.html_url || '',
-          releaseName: data.name || '',
-          publishedAt: data.published_at || '',
-          error: null,
-        });
-        return { hasUpdate, latestVersion };
-      } else if (response.status === 404) {
-        // リポジトリまたはリリースが見つからない
-        setUpdateInfo({
-          hasUpdate: false,
-          currentVersion: APP_VERSION,
-          latestVersion: APP_VERSION,
-          error: 'リリース情報が見つかりません',
-        });
-      } else if (response.status === 403) {
-        // API制限
-        setUpdateInfo({
-          hasUpdate: false,
-          currentVersion: APP_VERSION,
-          latestVersion: APP_VERSION,
-          error: 'API制限に達しました。しばらく待ってから再試行してください',
-        });
-      }
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        console.warn('Update check timed out');
-        setUpdateInfo({
-          hasUpdate: false,
-          currentVersion: APP_VERSION,
-          latestVersion: APP_VERSION,
-          error: '接続がタイムアウトしました',
-        });
-      } else {
-        console.error('Failed to check for updates:', error);
+    if (isElectron()) {
+      // Electronアプリの場合はelectron-updaterを使用
+      setIsCheckingUpdate(true);
+      try {
+        const result = await window.electronAPI?.checkForUpdates();
+        if (!result?.success) {
+          setUpdateInfo({
+            hasUpdate: false,
+            currentVersion: APP_VERSION,
+            latestVersion: APP_VERSION,
+            error: result?.error || 'アップデート確認に失敗しました',
+          });
+          setIsCheckingUpdate(false);
+        }
+        // 成功時はonUpdateStatusコールバックで処理される
+      } catch (error) {
+        setIsCheckingUpdate(false);
         setUpdateInfo({
           hasUpdate: false,
           currentVersion: APP_VERSION,
@@ -248,10 +271,38 @@ export function SettingsProvider({ children }) {
           error: 'アップデート確認に失敗しました',
         });
       }
-    } finally {
-      setIsCheckingUpdate(false);
     }
     return null;
+  }, []);
+
+  // アップデートをダウンロード
+  const downloadUpdate = useCallback(async () => {
+    if (!isElectron()) return;
+    setIsDownloading(true);
+    setDownloadProgress(0);
+    try {
+      const result = await window.electronAPI?.downloadUpdate();
+      if (!result?.success) {
+        setIsDownloading(false);
+        setUpdateInfo(prev => ({
+          ...prev,
+          error: result?.error || 'ダウンロードに失敗しました',
+        }));
+      }
+      // 成功時はonUpdateStatusコールバックで処理される
+    } catch (error) {
+      setIsDownloading(false);
+      setUpdateInfo(prev => ({
+        ...prev,
+        error: 'ダウンロードに失敗しました',
+      }));
+    }
+  }, []);
+
+  // アップデートをインストールして再起動
+  const installUpdate = useCallback(() => {
+    if (!isElectron()) return;
+    window.electronAPI?.installUpdate();
   }, []);
 
   // 設定モーダルの開閉
@@ -296,6 +347,13 @@ export function SettingsProvider({ children }) {
     isDevelopment: IS_DEVELOPMENT,
     appVersion: APP_VERSION,
     githubRepo: GITHUB_REPO,
+    // 自動アップデート
+    updateStatus,
+    isDownloading,
+    downloadProgress,
+    downloadUpdate,
+    installUpdate,
+    isElectronApp: isElectron(),
     // ユーザー管理
     users,
     currentUser,

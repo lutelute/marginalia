@@ -25,6 +25,13 @@ function SettingsPanel() {
     isDevelopment,
     appVersion,
     githubRepo,
+    // 自動アップデート
+    updateStatus,
+    isDownloading,
+    downloadProgress,
+    downloadUpdate,
+    installUpdate,
+    isElectronApp,
     // ユーザー管理
     users,
     currentUser,
@@ -414,36 +421,65 @@ function SettingsPanel() {
                     <span>現在のバージョン</span>
                     <span className="version-number">v{appVersion}</span>
                   </div>
-                  <button
-                    className="action-btn update-btn"
-                    onClick={checkForUpdates}
-                    disabled={isCheckingUpdate}
-                  >
-                    {isCheckingUpdate ? '確認中...' : '🔄 アップデートを確認'}
-                  </button>
-                  {updateInfo && (
-                    <div className={`update-result ${updateInfo.hasUpdate ? 'has-update' : 'up-to-date'}`}>
-                      {updateInfo.hasUpdate ? (
+
+                  {/* アップデート確認ボタン */}
+                  {!isDownloading && updateStatus?.status !== 'downloaded' && (
+                    <button
+                      className="action-btn update-btn"
+                      onClick={checkForUpdates}
+                      disabled={isCheckingUpdate || !isElectronApp}
+                    >
+                      {isCheckingUpdate ? '確認中...' : '🔄 アップデートを確認'}
+                    </button>
+                  )}
+
+                  {/* ダウンロード進捗 */}
+                  {isDownloading && (
+                    <div className="download-progress">
+                      <p className="update-message">ダウンロード中...</p>
+                      <div className="progress-bar">
+                        <div
+                          className="progress-fill"
+                          style={{ width: `${downloadProgress}%` }}
+                        />
+                      </div>
+                      <p className="progress-text">{Math.round(downloadProgress)}%</p>
+                    </div>
+                  )}
+
+                  {/* アップデート結果表示 */}
+                  {updateInfo && !isDownloading && (
+                    <div className={`update-result ${updateInfo.hasUpdate ? 'has-update' : updateInfo.error ? 'has-error' : 'up-to-date'}`}>
+                      {updateInfo.error ? (
+                        <p className="update-message error-message">{updateInfo.error}</p>
+                      ) : updateInfo.hasUpdate ? (
                         <>
                           <p className="update-message">新しいバージョンがあります！</p>
                           <p className="update-version">v{updateInfo.latestVersion}</p>
-                          <a
-                            href={updateInfo.releaseUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="download-link"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              window.open(updateInfo.releaseUrl, '_blank');
-                            }}
-                          >
-                            ダウンロードページを開く →
-                          </a>
+                          {updateStatus?.status === 'downloaded' ? (
+                            <button
+                              className="action-btn primary install-btn"
+                              onClick={installUpdate}
+                            >
+                              🚀 インストールして再起動
+                            </button>
+                          ) : (
+                            <button
+                              className="action-btn primary download-btn"
+                              onClick={downloadUpdate}
+                            >
+                              ⬇ ダウンロード
+                            </button>
+                          )}
                         </>
                       ) : (
                         <p className="update-message">最新バージョンです</p>
                       )}
                     </div>
+                  )}
+
+                  {!isElectronApp && (
+                    <p className="update-note">※ 自動アップデートはデスクトップアプリでのみ利用可能です</p>
                   )}
                 </div>
 
@@ -781,6 +817,61 @@ function SettingsPanel() {
           }
 
           .link-buttons .action-btn {
+            text-align: center;
+          }
+
+          /* Download Progress Styles */
+          .download-progress {
+            padding: 12px;
+            background-color: rgba(0, 120, 212, 0.1);
+            border-radius: 6px;
+            text-align: center;
+            margin-bottom: 12px;
+          }
+
+          .progress-bar {
+            width: 100%;
+            height: 8px;
+            background-color: var(--bg-tertiary);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 12px 0;
+          }
+
+          .progress-fill {
+            height: 100%;
+            background-color: var(--accent-color);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+          }
+
+          .progress-text {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin: 4px 0 0 0;
+          }
+
+          .update-result.has-error {
+            background-color: rgba(244, 67, 54, 0.15);
+            border: 1px solid var(--error-color);
+          }
+
+          .error-message {
+            color: var(--error-color);
+          }
+
+          .download-btn, .install-btn {
+            width: 100%;
+            margin-top: 12px;
+            padding: 12px 16px;
+            font-size: 14px;
+            font-weight: 600;
+          }
+
+          .update-note {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 12px;
             text-align: center;
           }
 

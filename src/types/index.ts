@@ -1,6 +1,24 @@
 // Editor Mode
 export type EditorMode = 'edit' | 'split' | 'preview';
 
+// User Types
+export interface User {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export const USER_COLORS = [
+  '#3b82f6', // Blue
+  '#ef4444', // Red
+  '#22c55e', // Green
+  '#f59e0b', // Amber
+  '#8b5cf6', // Purple
+  '#ec4899', // Pink
+  '#06b6d4', // Cyan
+  '#f97316', // Orange
+] as const;
+
 // Annotation Types
 export type AnnotationType = 'comment' | 'review' | 'pending' | 'discussion';
 
@@ -15,6 +33,7 @@ export interface Annotation {
   id: string;
   type: AnnotationType;
   content: string;
+  author: string;
   selectedText: string;
   startLine: number;
   endLine: number;
@@ -24,6 +43,12 @@ export interface Annotation {
   createdAt: string;
   resolved: boolean;
   replies: Reply[];
+}
+
+export interface AnnotationFilter {
+  status: 'resolved' | 'unresolved' | null;
+  type: AnnotationType | null;
+  author: string | null;
 }
 
 export interface HistoryItem {
@@ -105,10 +130,19 @@ export interface UpdateInfo {
   hasUpdate: boolean;
   currentVersion: string;
   latestVersion: string;
-  releaseUrl: string;
-  releaseName: string;
-  publishedAt: string;
+  releaseUrl?: string;
+  releaseName?: string;
+  publishedAt?: string;
+  error?: string;
 }
+
+export type UpdateStatus =
+  | { status: 'checking' }
+  | { status: 'available'; version: string; releaseNotes?: string; releaseName?: string }
+  | { status: 'not-available'; version: string }
+  | { status: 'downloading'; percent: number; bytesPerSecond: number; total: number; transferred: number }
+  | { status: 'downloaded'; version: string }
+  | { status: 'error'; message: string };
 
 // Electron API Types
 export interface ElectronAPI {
@@ -127,10 +161,17 @@ export interface ElectronAPI {
   getFileStats: (path: string) => Promise<{ mtime: string; size: number } | null>;
   listMarginaliaBackups: (path: string) => Promise<BackupInfo[]>;
   restoreMarginaliaBackup: (backupPath: string, filePath: string) => Promise<boolean>;
+  // アップデート関連
+  checkForUpdates: () => Promise<{ success: boolean; data?: unknown; error?: string }>;
+  downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
+  installUpdate: () => void;
+  getAppVersion: () => Promise<string>;
+  onUpdateStatus: (callback: (data: UpdateStatus) => void) => () => void;
 }
 
 declare global {
   interface Window {
     electron?: ElectronAPI;
+    electronAPI?: ElectronAPI;
   }
 }

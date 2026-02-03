@@ -1,6 +1,6 @@
 {
   "name": "marginalia",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Markdown編集ツール - 校閲・コメント・バージョン管理機能付き",
   "main": "electron/main.js",
   "scripts": {
@@ -13,7 +13,8 @@
     "start": "npm run build:prod && npm run electron:prod",
     "package:mac": "npm run build:prod && electron-builder --mac",
     "package:win": "npm run build:prod && electron-builder --win",
-    "package:linux": "npm run build:prod && electron-builder --linux"
+    "package:linux": "npm run build:prod && electron-builder --linux",
+    "publish:mac": "npm run build:prod && electron-builder --mac --publish always"
   },
   "keywords": [
     "markdown",
@@ -47,6 +48,11 @@
       "electron/**/*",
       "package.json"
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "lutelute",
+      "repo": "Marginalia"
+    },
     "mac": {
       "category": "public.app-category.developer-tools",
       "icon": "build/icon.icns",
@@ -77,6 +83,7 @@
     "@codemirror/view": "^6.23.0",
     "@lezer/highlight": "^1.2.3",
     "codemirror": "^6.0.1",
+    "electron-updater": "^6.7.3",
     "katex": "^0.16.28",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

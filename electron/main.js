@@ -1,8 +1,73 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fileSystem = require('./fileSystem');
+const { autoUpdater } = require('electron-updater');
 
 let mainWindow;
+
+// Auto Updater 設定
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = true;
+
+// ログ設定
+autoUpdater.logger = console;
+
+// アップデートイベント
+autoUpdater.on('checking-for-update', () => {
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', { status: 'checking' });
+  }
+});
+
+autoUpdater.on('update-available', (info) => {
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', {
+      status: 'available',
+      version: info.version,
+      releaseNotes: info.releaseNotes,
+      releaseName: info.releaseName,
+    });
+  }
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', {
+      status: 'not-available',
+      version: info.version,
+    });
+  }
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', {
+      status: 'downloading',
+      percent: progressObj.percent,
+      bytesPerSecond: progressObj.bytesPerSecond,
+      total: progressObj.total,
+      transferred: progressObj.transferred,
+    });
+  }
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', {
+      status: 'downloaded',
+      version: info.version,
+    });
+  }
+});
+
+autoUpdater.on('error', (err) => {
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', {
+      status: 'error',
+      message: err.message,
+    });
+  }
+});
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -122,4 +187,36 @@ ipcMain.handle('fs:listMarginaliaBackups', async (event, filePath) => {
 // 注釈バックアップから復元
 ipcMain.handle('fs:restoreMarginaliaBackup', async (event, backupPath, filePath) => {
   return await fileSystem.restoreMarginaliaBackup(backupPath, filePath);
+});
+
+// Auto Update IPC Handlers
+
+// アップデート確認
+ipcMain.handle('update:check', async () => {
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// アップデートダウンロード
+ipcMain.handle('update:download', async () => {
+  try {
+    await autoUpdater.downloadUpdate();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// アップデートインストール & 再起動
+ipcMain.handle('update:install', () => {
+  autoUpdater.quitAndInstall(false, true);
+});
+
+// アプリバージョン取得
+ipcMain.handle('app:getVersion', () => {
+  return app.getVersion();
 });
