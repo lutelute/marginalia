@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { useSettings } from '../../contexts/SettingsContext';
+import { USER_COLORS } from '../../types';
 
 const TABS = [
   { id: 'general', label: '一般' },
+  { id: 'user', label: 'ユーザー' },
   { id: 'editor', label: 'エディタ' },
   { id: 'preview', label: 'プレビュー' },
   { id: 'backup', label: 'バックアップ' },
@@ -23,7 +25,21 @@ function SettingsPanel() {
     isDevelopment,
     appVersion,
     githubRepo,
+    // ユーザー管理
+    users,
+    currentUser,
+    currentUserId,
+    addUser,
+    removeUser,
+    switchUser,
+    updateUserName,
+    updateUserColor,
   } = useSettings();
+
+  // 新規ユーザー追加フォーム
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserColor, setNewUserColor] = useState(USER_COLORS[0]);
 
   const [activeTab, setActiveTab] = useState('general');
   const fileInputRef = useRef(null);
@@ -248,6 +264,144 @@ function SettingsPanel() {
                       />
                     </div>
                   </>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'user' && (
+              <div className="settings-section">
+                <h3>現在のユーザー</h3>
+                <div className="current-user-info">
+                  <div
+                    className="user-avatar"
+                    style={{ backgroundColor: currentUser?.color || USER_COLORS[0] }}
+                  >
+                    {currentUser?.name?.charAt(0) || 'U'}
+                  </div>
+                  <div className="user-details">
+                    <span className="user-name">{currentUser?.name || 'ユーザー'}</span>
+                    <span className="user-badge">現在のユーザー</span>
+                  </div>
+                </div>
+
+                <div className="setting-item">
+                  <label>表示名</label>
+                  <input
+                    type="text"
+                    value={currentUser?.name || ''}
+                    onChange={(e) => updateUserName(e.target.value)}
+                    placeholder="名前を入力"
+                  />
+                </div>
+
+                <div className="setting-item">
+                  <label>ハイライトカラー</label>
+                  <div className="color-picker">
+                    {USER_COLORS.map((color) => (
+                      <button
+                        key={color}
+                        className={`color-option ${currentUser?.color === color ? 'selected' : ''}`}
+                        style={{ backgroundColor: color }}
+                        onClick={() => updateUserColor(color)}
+                        title={color}
+                      >
+                        {currentUser?.color === color && <span className="check-icon">✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <h3>チームメンバー</h3>
+                <div className="users-list">
+                  {users.map((user) => (
+                    <div
+                      key={user.id}
+                      className={`user-item ${user.id === currentUserId ? 'current' : ''}`}
+                    >
+                      <button
+                        className="user-item-main"
+                        onClick={() => user.id !== currentUserId && switchUser(user.id)}
+                        disabled={user.id === currentUserId}
+                      >
+                        <div
+                          className="user-avatar small"
+                          style={{ backgroundColor: user.color }}
+                        >
+                          {user.name.charAt(0)}
+                        </div>
+                        <span className="user-name">{user.name}</span>
+                        {user.id === currentUserId && (
+                          <span className="user-badge small">現在</span>
+                        )}
+                      </button>
+                      {user.id !== currentUserId && users.length > 1 && (
+                        <button
+                          className="user-remove-btn"
+                          onClick={() => removeUser(user.id)}
+                          title={`${user.name}を削除`}
+                        >
+                          🗑
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {showAddUser ? (
+                  <div className="add-user-form">
+                    <input
+                      type="text"
+                      value={newUserName}
+                      onChange={(e) => setNewUserName(e.target.value)}
+                      placeholder="ユーザー名"
+                      autoFocus
+                    />
+                    <div className="add-user-colors">
+                      {USER_COLORS.slice(0, 4).map((color) => (
+                        <button
+                          key={color}
+                          className={`color-option small ${newUserColor === color ? 'selected' : ''}`}
+                          style={{ backgroundColor: color }}
+                          onClick={() => setNewUserColor(color)}
+                        >
+                          {newUserColor === color && <span className="check-icon">✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="add-user-actions">
+                      <button
+                        className="action-btn"
+                        onClick={() => {
+                          setShowAddUser(false);
+                          setNewUserName('');
+                          setNewUserColor(USER_COLORS[0]);
+                        }}
+                      >
+                        キャンセル
+                      </button>
+                      <button
+                        className="action-btn primary"
+                        onClick={() => {
+                          if (newUserName.trim()) {
+                            addUser(newUserName.trim(), newUserColor);
+                            setShowAddUser(false);
+                            setNewUserName('');
+                            setNewUserColor(USER_COLORS[0]);
+                          }
+                        }}
+                        disabled={!newUserName.trim()}
+                      >
+                        追加
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    className="action-btn add-user-btn"
+                    onClick={() => setShowAddUser(true)}
+                  >
+                    ＋ メンバーを追加
+                  </button>
                 )}
               </div>
             )}
@@ -628,6 +782,220 @@ function SettingsPanel() {
 
           .link-buttons .action-btn {
             text-align: center;
+          }
+
+          /* User Management Styles */
+          .current-user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background-color: var(--bg-tertiary);
+            border-radius: 8px;
+            margin-bottom: 16px;
+          }
+
+          .user-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 18px;
+          }
+
+          .user-avatar.small {
+            width: 32px;
+            height: 32px;
+            font-size: 14px;
+          }
+
+          .user-details {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+          }
+
+          .user-details .user-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+          }
+
+          .user-badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            background-color: var(--accent-color);
+            color: white;
+            border-radius: 10px;
+            width: fit-content;
+          }
+
+          .user-badge.small {
+            font-size: 10px;
+            padding: 1px 6px;
+          }
+
+          .color-picker {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+          }
+
+          .color-option {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+          }
+
+          .color-option:hover {
+            transform: scale(1.1);
+          }
+
+          .color-option.selected {
+            border-color: white;
+            box-shadow: 0 0 0 2px var(--accent-color);
+          }
+
+          .color-option.small {
+            width: 24px;
+            height: 24px;
+          }
+
+          .check-icon {
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+          }
+
+          .users-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 12px;
+          }
+
+          .user-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background-color: var(--bg-tertiary);
+            border-radius: 8px;
+            transition: background-color 0.2s;
+          }
+
+          .user-item:hover {
+            background-color: var(--bg-hover);
+          }
+
+          .user-item.current {
+            background-color: rgba(0, 120, 212, 0.15);
+            border: 1px solid var(--accent-color);
+          }
+
+          .user-item-main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: none;
+            border: none;
+            padding: 4px;
+            cursor: pointer;
+            color: var(--text-primary);
+            font-size: 13px;
+          }
+
+          .user-item-main:disabled {
+            cursor: default;
+          }
+
+          .user-item-main .user-name {
+            flex: 1;
+            text-align: left;
+          }
+
+          .user-remove-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            opacity: 0.5;
+            transition: all 0.2s;
+            font-size: 12px;
+          }
+
+          .user-remove-btn:hover {
+            opacity: 1;
+            background-color: rgba(244, 67, 54, 0.1);
+          }
+
+          .add-user-form {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 12px;
+            background-color: var(--bg-tertiary);
+            border-radius: 8px;
+          }
+
+          .add-user-form input {
+            width: 100%;
+            padding: 8px 12px;
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 13px;
+          }
+
+          .add-user-form input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+          }
+
+          .add-user-colors {
+            display: flex;
+            gap: 8px;
+          }
+
+          .add-user-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+          }
+
+          .add-user-btn {
+            width: 100%;
+            justify-content: center;
+          }
+
+          .action-btn.primary {
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
+            color: white;
+          }
+
+          .action-btn.primary:hover {
+            background-color: var(--accent-hover);
+          }
+
+          .action-btn.primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
           }
         `}</style>
       </div>
