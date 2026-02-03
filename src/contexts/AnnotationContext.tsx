@@ -1,16 +1,18 @@
-import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useEffect, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useFile } from './FileContext';
+import { Annotation, AnnotationStatus } from '../types';
 
 const AnnotationContext = createContext(null);
 
 const initialState = {
-  annotations: [],
+  annotations: [] as Annotation[],
   history: [],
   selectedAnnotation: null,
   isLoading: false,
   pendingSelection: null, // テキスト選択時の一時データ
   scrollToLine: null as { line: number; annotationId: string } | null, // エディタへのジャンプ用
+  documentText: '', // 現在のドキュメントテキスト（孤立検出用）
 };
 
 function annotationReducer(state, action) {
@@ -79,6 +81,43 @@ function annotationReducer(state, action) {
       return {
         ...state,
         scrollToLine: action.payload,
+      };
+
+    case 'SET_DOCUMENT_TEXT':
+      return {
+        ...state,
+        documentText: action.payload,
+      };
+
+    case 'UPDATE_ANNOTATION_STATUS':
+      return {
+        ...state,
+        annotations: state.annotations.map((a) =>
+          a.id === action.payload.id ? { ...a, status: action.payload.status } : a
+        ),
+      };
+
+    case 'BULK_UPDATE_STATUS':
+      return {
+        ...state,
+        annotations: state.annotations.map((a) =>
+          action.payload.ids.includes(a.id) ? { ...a, status: action.payload.status } : a
+        ),
+      };
+
+    case 'REASSIGN_ANNOTATION':
+      return {
+        ...state,
+        annotations: state.annotations.map((a) =>
+          a.id === action.payload.id
+            ? {
+                ...a,
+                selectedText: action.payload.newText,
+                occurrenceIndex: action.payload.occurrenceIndex ?? 0,
+                status: 'active' as AnnotationStatus,
+              }
+            : a
+        ),
       };
 
     default:
@@ -222,6 +261,86 @@ export function AnnotationProvider({ children }) {
     });
   }, []);
 
+  // ドキュメントテキストを更新（孤立検出用）
+  const setDocumentText = useCallback((text: string) => {
+    dispatch({ type: 'SET_DOCUMENT_TEXT', payload: text });
+  }, []);
+
+  // 注釈のステータスを変更
+  const setAnnotationStatus = useCallback((id: string, status: AnnotationStatus) => {
+    dispatch({ type: 'UPDATE_ANNOTATION_STATUS', payload: { id, status } });
+  }, []);
+
+  // 注釈を保持（kept状態に）
+  const keepAnnotation = useCallback((id: string) => {
+    setAnnotationStatus(id, 'kept');
+  }, [setAnnotationStatus]);
+
+  // 注釈を再割当
+  const reassignAnnotation = useCallback((id: string, newText: string, occurrenceIndex?: number) => {
+    dispatch({
+      type: 'REASSIGN_ANNOTATION',
+      payload: { id, newText, occurrenceIndex },
+    });
+  }, []);
+
+  // 孤立注釈を検出
+  const detectOrphanedAnnotations = useCallback((documentText: string) => {
+    const orphaned: string[] = [];
+
+    state.annotations.forEach((annotation) => {
+      // 既にkept状態の注釈はスキップ
+      if (annotation.status === 'kept') return;
+      // 解決済みはスキップ
+      if (annotation.resolved) return;
+      // ブロック注釈は別処理（今回はスキップ）
+      if (annotation.blockId) return;
+
+      const searchText = annotation.selectedText;
+      if (!searchText) return;
+
+      // テキストの出現回数をカウント
+      let count = 0;
+      let index = 0;
+      while ((index = documentText.indexOf(searchText, index)) !== -1) {
+        count++;
+        index += 1;
+      }
+
+      const targetOccurrence = annotation.occurrenceIndex ?? 0;
+
+      // 出現回数が足りない場合は孤立
+      if (count <= targetOccurrence) {
+        orphaned.push(annotation.id);
+      }
+    });
+
+    // 孤立注釈のステータスを更新
+    if (orphaned.length > 0) {
+      dispatch({
+        type: 'BULK_UPDATE_STATUS',
+        payload: { ids: orphaned, status: 'orphaned' as AnnotationStatus },
+      });
+    }
+
+    return orphaned;
+  }, [state.annotations]);
+
+  // 孤立注釈のリスト
+  const orphanedAnnotations = useMemo(() => {
+    return state.annotations.filter((a) => a.status === 'orphaned');
+  }, [state.annotations]);
+
+  // 保持された注釈のリスト
+  const keptAnnotations = useMemo(() => {
+    return state.annotations.filter((a) => a.status === 'kept');
+  }, [state.annotations]);
+
+  // アクティブな注釈のリスト
+  const activeAnnotations = useMemo(() => {
+    return state.annotations.filter((a) => !a.status || a.status === 'active');
+  }, [state.annotations]);
+
   const value = {
     ...state,
     addAnnotation,
@@ -233,6 +352,15 @@ export function AnnotationProvider({ children }) {
     resolveAnnotation,
     scrollToEditorLine,
     clearScrollToLine,
+    // 孤立注釈管理
+    setDocumentText,
+    setAnnotationStatus,
+    keepAnnotation,
+    reassignAnnotation,
+    detectOrphanedAnnotations,
+    orphanedAnnotations,
+    keptAnnotations,
+    activeAnnotations,
   };
 
   return (

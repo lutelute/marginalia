@@ -32,6 +32,9 @@ export const USER_COLORS = [
 // Annotation Types
 export type AnnotationType = 'comment' | 'review' | 'pending' | 'discussion';
 
+// 注釈の状態
+export type AnnotationStatus = 'active' | 'orphaned' | 'kept';
+
 export interface Reply {
   id: string;
   content: string;
@@ -55,6 +58,17 @@ export interface Annotation {
   createdAt: string;
   resolved: boolean;
   replies: Reply[];
+  // 注釈の状態（デフォルト: active）
+  status?: AnnotationStatus;
+}
+
+// 削除されたファイルの注釈データ
+export interface OrphanedFileData {
+  filePath: string;
+  fileName: string;
+  lastModified: string;
+  annotations: Annotation[];
+  history: HistoryItem[];
 }
 
 export interface AnnotationFilter {

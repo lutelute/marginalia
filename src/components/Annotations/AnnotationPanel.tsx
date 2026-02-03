@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAnnotation } from '../../contexts/AnnotationContext';
 import { useFile } from '../../contexts/FileContext';
 import CommentThread from './CommentThread';
 import HistoryItem from './HistoryItem';
 import BackupPanel from './BackupPanel';
 import TimelineView from './TimelineView';
+import OrphanedAnnotations from './OrphanedAnnotations';
 
 const ANNOTATION_TYPES = [
   { id: 'comment', label: 'コメント', color: 'var(--comment-color)' },
@@ -28,7 +29,21 @@ function AnnotationPanel() {
     selectedAnnotation,
     addAnnotation,
     setPendingSelection,
+    orphanedAnnotations,
+    keptAnnotations,
+    activeAnnotations,
+    detectOrphanedAnnotations,
   } = useAnnotation();
+  const { content } = useFile();
+
+  // ドキュメント内容が変更されたら孤立注釈を検出
+  useEffect(() => {
+    if (content && annotations.length > 0) {
+      detectOrphanedAnnotations(content);
+    }
+  }, [content, annotations.length, detectOrphanedAnnotations]);
+
+  const orphanedCount = orphanedAnnotations.length + keptAnnotations.length;
 
   // タイプフィルターのトグル
   const toggleTypeFilter = (typeId: string) => {
@@ -54,6 +69,9 @@ function AnnotationPanel() {
 
   const filteredAnnotations = annotations
     .filter((a) => {
+      // 孤立/保持された注釈は除外（孤立タブで表示）
+      if (a.status === 'orphaned' || a.status === 'kept') return false;
+
       // ステータスフィルター
       if (filterStatus === 'unresolved' && a.resolved) return false;
       if (filterStatus === 'resolved' && !a.resolved) return false;
@@ -117,6 +135,12 @@ function AnnotationPanel() {
           onClick={() => setActiveTab('timeline')}
         >
           履歴
+        </button>
+        <button
+          className={`tab ${activeTab === 'orphaned' ? 'active' : ''} ${orphanedCount > 0 ? 'has-warning' : ''}`}
+          onClick={() => setActiveTab('orphaned')}
+        >
+          孤立 {orphanedCount > 0 && <span className="orphaned-badge">{orphanedCount}</span>}
         </button>
         <button
           className={`tab ${activeTab === 'backup' ? 'active' : ''}`}
@@ -244,6 +268,9 @@ function AnnotationPanel() {
         {activeTab === 'timeline' && (
           <TimelineView />
         )}
+        {activeTab === 'orphaned' && (
+          <OrphanedAnnotations />
+        )}
         {activeTab === 'backup' && (
           <BackupPanel />
         )}
@@ -288,6 +315,29 @@ function AnnotationPanel() {
         .tab.active {
           color: var(--accent-color);
           border-bottom-color: var(--accent-color);
+        }
+
+        .tab.has-warning {
+          color: var(--warning-color);
+        }
+
+        .tab.has-warning.active {
+          border-bottom-color: var(--warning-color);
+        }
+
+        .orphaned-badge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 18px;
+          height: 18px;
+          padding: 0 5px;
+          margin-left: 4px;
+          font-size: 10px;
+          font-weight: 600;
+          background-color: var(--warning-color);
+          color: white;
+          border-radius: 9px;
         }
 
         .new-annotation-form {
