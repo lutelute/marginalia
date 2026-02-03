@@ -286,7 +286,10 @@ export function AnnotationProvider({ children }) {
 
   // 孤立注釈を検出
   const detectOrphanedAnnotations = useCallback((documentText: string) => {
+    if (!documentText || state.annotations.length === 0) return [];
+
     const orphaned: string[] = [];
+    const reactivated: string[] = [];
 
     state.annotations.forEach((annotation) => {
       // 既にkept状態の注釈はスキップ
@@ -311,7 +314,15 @@ export function AnnotationProvider({ children }) {
 
       // 出現回数が足りない場合は孤立
       if (count <= targetOccurrence) {
-        orphaned.push(annotation.id);
+        // まだorphanedでない場合のみ追加
+        if (annotation.status !== 'orphaned') {
+          orphaned.push(annotation.id);
+        }
+      } else {
+        // テキストが見つかった場合、orphanedからactiveに戻す
+        if (annotation.status === 'orphaned') {
+          reactivated.push(annotation.id);
+        }
       }
     });
 
@@ -320,6 +331,14 @@ export function AnnotationProvider({ children }) {
       dispatch({
         type: 'BULK_UPDATE_STATUS',
         payload: { ids: orphaned, status: 'orphaned' as AnnotationStatus },
+      });
+    }
+
+    // 再アクティブ化
+    if (reactivated.length > 0) {
+      dispatch({
+        type: 'BULK_UPDATE_STATUS',
+        payload: { ids: reactivated, status: 'active' as AnnotationStatus },
       });
     }
 

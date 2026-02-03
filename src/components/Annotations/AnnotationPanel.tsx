@@ -36,12 +36,17 @@ function AnnotationPanel() {
   } = useAnnotation();
   const { content } = useFile();
 
-  // ドキュメント内容が変更されたら孤立注釈を検出
+  // ドキュメント内容が変更されたら孤立注釈を検出（debounce付き）
   useEffect(() => {
-    if (content && annotations.length > 0) {
+    if (!content || annotations.length === 0) return;
+
+    // 500ms後に検出を実行（頻繁な更新を防ぐ）
+    const timer = setTimeout(() => {
       detectOrphanedAnnotations(content);
-    }
-  }, [content, annotations.length, detectOrphanedAnnotations]);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [content]); // annotations.lengthを依存関係から削除
 
   const orphanedCount = orphanedAnnotations.length + keptAnnotations.length;
 

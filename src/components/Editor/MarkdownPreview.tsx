@@ -904,49 +904,8 @@ function MarkdownPreviewInner() {
     setPopupPosition(null);
   }, []);
 
-  // 数式ブロック（KaTeX）にラッパーを追加
-  useEffect(() => {
-    if (!mainRef.current) return;
-
-    const mathDisplays = mainRef.current.querySelectorAll('.katex-display');
-
-    mathDisplays.forEach((mathEl) => {
-      if (mathEl.dataset.mathProcessed) return;
-      mathEl.dataset.mathProcessed = 'true';
-
-      const mathText = mathEl.textContent || '';
-      const blockId = `math-${simpleHash(mathText)}`;
-
-      const wrapper = document.createElement('div');
-      wrapper.className = 'math-block-wrapper-dynamic';
-      wrapper.dataset.blockId = blockId;
-      wrapper.style.cssText = `
-        position: relative;
-        margin-bottom: 16px;
-        padding: 8px;
-        padding-left: 12px;
-        border-radius: 6px;
-        background: var(--bg-tertiary, #2d2d2d);
-      `;
-
-      const header = document.createElement('div');
-      header.style.cssText = `
-        margin-bottom: 8px;
-        padding-bottom: 4px;
-        border-bottom: 1px solid var(--border-color, #404040);
-      `;
-
-      const label = document.createElement('span');
-      label.style.cssText = 'font-size: 11px; color: #999; font-weight: 600;';
-      label.textContent = '数式';
-
-      header.appendChild(label);
-      wrapper.appendChild(header);
-
-      mathEl.parentNode.insertBefore(wrapper, mathEl);
-      wrapper.appendChild(mathEl);
-    });
-  }, [content]);
+  // 数式ブロック（KaTeX）のスタイリングはCSSで対応
+  // DOM操作はReactの再レンダリングと競合するため削除
 
   const handleAddAnnotation = useCallback((content) => {
     if (selection && formType) {
@@ -1623,8 +1582,11 @@ function MarkdownPreviewInner() {
 
         /* KaTeX数式のスタイル調整 */
         .katex-display {
-          margin: 0;
-          padding: 8px 0;
+          margin: 16px 0;
+          padding: 16px;
+          background-color: var(--bg-tertiary);
+          border-radius: 6px;
+          overflow-x: auto;
         }
 
         .katex {
