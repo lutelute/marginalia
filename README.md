@@ -10,8 +10,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/lutelute/Marginalia_simple/releases">
-    <img src="https://img.shields.io/github/v/release/lutelute/Marginalia_simple?style=flat-square" alt="Release">
+  <a href="https://github.com/lutelute/marginalia/releases">
+    <img src="https://img.shields.io/github/v/release/lutelute/marginalia?style=flat-square" alt="Release">
   </a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue?style=flat-square" alt="Platform">
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
@@ -50,20 +50,50 @@
 
 ## インストール
 
-### リリース版（推奨）
+> **ダウンロード:** https://github.com/lutelute/marginalia/releases/latest
 
-[Releases](https://github.com/lutelute/Marginalia_simple/releases) から最新版をダウンロード:
+### macOS
 
-| OS | ファイル |
-|----|---------|
-| macOS | `Marginalia-x.x.x.dmg` または `.zip` |
-| Windows | `Marginalia-Setup-x.x.x.exe` または `.portable.exe` |
-| Linux | `Marginalia-x.x.x.AppImage` または `.deb` |
+**方法1: DMG版（推奨）**
+1. `Marginalia-x.x.x-arm64.dmg` をダウンロード
+2. DMGファイルを開き、アプリを「アプリケーション」フォルダにドラッグ
+3. 初回起動時に「開発元が未確認」と表示された場合:
+   - システム設定 → プライバシーとセキュリティ → 「このまま開く」をクリック
+
+**方法2: ZIP版**
+1. `Marginalia-x.x.x-arm64-mac.zip` をダウンロード
+2. 解凍してアプリを「アプリケーション」フォルダに移動
+
+### Windows
+
+**方法1: インストーラー版（推奨）**
+1. `Marginalia Setup x.x.x.exe` をダウンロード
+2. ダウンロードしたexeファイルをダブルクリック
+3. 自動でインストールされ、アプリが起動します
+
+**方法2: ポータブル版（インストール不要）**
+1. `Marginalia x.x.x.exe` をダウンロード
+2. ダウンロードしたexeファイルをダブルクリックで即起動
+
+> **Note:** 「WindowsによってPCが保護されました」と表示された場合は、「詳細情報」→「実行」をクリックしてください。
+
+### Linux
+
+**AppImage版:**
+```bash
+chmod +x Marginalia-x.x.x.AppImage
+./Marginalia-x.x.x.AppImage
+```
+
+**Debian/Ubuntu (.deb):**
+```bash
+sudo dpkg -i marginalia_x.x.x_amd64.deb
+```
 
 ### 開発版
 
 ```bash
-git clone https://github.com/lutelute/Marginalia_simple.git
+git clone https://github.com/lutelute/marginalia.git
 cd marginalia
 npm install
 npm run dev
