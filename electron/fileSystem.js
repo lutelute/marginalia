@@ -16,10 +16,14 @@ const MAX_BACKUPS = 20; // 保持するバックアップの最大数
 
 /**
  * ディレクトリを再帰的に読み込み、Markdownファイルのみをフィルタリング
+ * 各ファイルに annotationCount（注釈件数）を付与
  */
 async function readDirectory(dirPath, relativePath = '') {
   const entries = await fs.readdir(dirPath, { withFileTypes: true });
   const result = [];
+
+  // このディレクトリの .marginalia/ から注釈件数マップを構築
+  const annotationCounts = await scanAnnotationCounts(dirPath);
 
   for (const entry of entries) {
     if (entry.name.startsWith('.')) continue;
@@ -42,11 +46,13 @@ async function readDirectory(dirPath, relativePath = '') {
     } else if (entry.isFile()) {
       const ext = path.extname(entry.name).toLowerCase();
       if (MARKDOWN_EXTENSIONS.includes(ext)) {
+        const stem = path.basename(entry.name, ext);
         result.push({
           name: entry.name,
           path: fullPath,
           relativePath: itemRelativePath,
           isDirectory: false,
+          annotationCount: annotationCounts[stem] ?? 0,
         });
       }
     }
@@ -59,6 +65,45 @@ async function readDirectory(dirPath, relativePath = '') {
   });
 
   return result;
+}
+
+/**
+ * ディレクトリ内の .marginalia/ をスキャンし、stemごとの注釈件数マップを返す
+ * @returns {Object} { "document": 3, "readme": 0, ... }
+ */
+async function scanAnnotationCounts(dirPath) {
+  const counts = {};
+  const marginaliaDir = path.join(dirPath, MARGINALIA_DIR);
+
+  try {
+    const entries = await fs.readdir(marginaliaDir);
+    for (const entry of entries) {
+      if (!entry.endsWith(MARGINALIA_EXT)) continue;
+
+      const stem = entry.slice(0, -MARGINALIA_EXT.length);
+      // 旧形式（stem_hash.mrgl）のstem部分を抽出
+      // 新形式: "document.mrgl" → stem = "document"
+      // 旧形式: "document_abc123.mrgl" → stem部分を推定
+      const mrglPath = path.join(marginaliaDir, entry);
+      try {
+        const content = await fs.readFile(mrglPath, 'utf-8');
+        const data = JSON.parse(content);
+        if (data._tool === 'marginalia' && Array.isArray(data.annotations)) {
+          // ファイル名から実際のstemを取得（新形式優先）
+          const actualStem = data.fileName
+            ? path.basename(data.fileName, path.extname(data.fileName))
+            : stem;
+          counts[actualStem] = data.annotations.length;
+        }
+      } catch {
+        // JSON解析失敗は無視
+      }
+    }
+  } catch {
+    // .marginalia/ が存在しない場合は空を返す
+  }
+
+  return counts;
 }
 
 // ---------------------------------------------------------------------------

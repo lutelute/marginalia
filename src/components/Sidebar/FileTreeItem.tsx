@@ -112,7 +112,14 @@ function FileTreeItem({ item, depth }) {
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
-          <span className="file-tree-item-name">{item.name}</span>
+          <>
+            <span className="file-tree-item-name">{item.name}</span>
+            {!item.isDirectory && item.annotationCount > 0 && (
+              <span className="annotation-badge" title={`${item.annotationCount}件の注釈`}>
+                {item.annotationCount}
+              </span>
+            )}
+          </>
         )}
       </div>
 
@@ -200,6 +207,28 @@ function FileTreeItem({ item, depth }) {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          flex: 1;
+          min-width: 0;
+        }
+
+        .annotation-badge {
+          flex-shrink: 0;
+          margin-left: 6px;
+          padding: 0 5px;
+          min-width: 16px;
+          height: 16px;
+          line-height: 16px;
+          font-size: 10px;
+          font-weight: 600;
+          text-align: center;
+          border-radius: 8px;
+          background-color: var(--accent-color);
+          color: #fff;
+          opacity: 0.8;
+        }
+
+        .file-tree-item-row:hover .annotation-badge {
+          opacity: 1;
         }
 
         .file-tree-children {
