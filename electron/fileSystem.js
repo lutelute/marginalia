@@ -8,7 +8,13 @@ const ANNOTATION_BACKUP_DIR = 'annotation-backups';
 const MARGINALIA_EXT = '.mrgl';
 const BACKUP_EXT = '.bak';
 const MARKDOWN_EXTENSIONS = ['.md', '.markdown'];
+const HIDDEN_EXTENSIONS = ['.mrgl', '.bak', '.DS_Store'];
+const HIDDEN_DIRS = ['node_modules', '.git', '.marginalia', '__pycache__', '.venv', 'venv'];
 const MAX_BACKUPS = 20; // 保持するバックアップの最大数
+
+// ビルドシステムのインフラファイル/ディレクトリ（ユーザーコンテンツではないもの）
+const SYSTEM_DIRS = ['templates', 'output', '.venv', 'venv', '__pycache__'];
+const SYSTEM_FILES = ['build', 'requirements.txt', 'Makefile', 'setup.py', 'setup.cfg', 'pyproject.toml'];
 
 // ---------------------------------------------------------------------------
 // ディレクトリ読み込み
@@ -18,43 +24,63 @@ const MAX_BACKUPS = 20; // 保持するバックアップの最大数
  * ディレクトリを再帰的に読み込み、Markdownファイルのみをフィルタリング
  * 各ファイルに annotationCount（注釈件数）を付与
  */
-async function readDirectory(dirPath, relativePath = '') {
+async function readDirectory(dirPath, relativePath = '', options = {}) {
+  const { showHidden = false, systemDirs = null } = options;
   const entries = await fs.readdir(dirPath, { withFileTypes: true });
   const result = [];
 
   // このディレクトリの .marginalia/ から注釈件数マップを構築
   const annotationCounts = await scanAnnotationCounts(dirPath);
 
+  // ルートレベルかどうかを判定（相対パスが空 = ルート直下）
+  const isRootLevel = relativePath === '';
+
   for (const entry of entries) {
-    if (entry.name.startsWith('.')) continue;
-    if (entry.name === 'node_modules') continue;
+    if (!showHidden && entry.name.startsWith('.')) continue;
+    if (HIDDEN_DIRS.includes(entry.name)) continue;
 
     const fullPath = path.join(dirPath, entry.name);
     const itemRelativePath = path.join(relativePath, entry.name);
 
     if (entry.isDirectory()) {
-      const children = await readDirectory(fullPath, itemRelativePath);
+      const children = await readDirectory(fullPath, itemRelativePath, options);
       if (children.length > 0) {
+        // ルート直下のシステムディレクトリを判定
+        const isSystem = isRootLevel && (
+          SYSTEM_DIRS.includes(entry.name) ||
+          (systemDirs && systemDirs.includes(entry.name))
+        );
         result.push({
           name: entry.name,
           path: fullPath,
           relativePath: itemRelativePath,
           isDirectory: true,
+          isSystem: isSystem || false,
           children,
         });
       }
     } else if (entry.isFile()) {
       const ext = path.extname(entry.name).toLowerCase();
-      if (MARKDOWN_EXTENSIONS.includes(ext)) {
+      if (HIDDEN_EXTENSIONS.includes(ext)) continue;
+
+      const isMarkdown = MARKDOWN_EXTENSIONS.includes(ext);
+      // ルート直下のシステムファイルを判定
+      const isSystem = isRootLevel && SYSTEM_FILES.includes(entry.name);
+      const item = {
+        name: entry.name,
+        path: fullPath,
+        relativePath: itemRelativePath,
+        isDirectory: false,
+        isSystem: isSystem || false,
+        extension: ext,
+      };
+
+      if (isMarkdown) {
         const stem = path.basename(entry.name, ext);
-        result.push({
-          name: entry.name,
-          path: fullPath,
-          relativePath: itemRelativePath,
-          isDirectory: false,
-          annotationCount: annotationCounts[stem] ?? 0,
-        });
+        item.annotationCount = annotationCounts[stem] ?? 0;
       }
+
+      result.push(item);
     }
   }
 

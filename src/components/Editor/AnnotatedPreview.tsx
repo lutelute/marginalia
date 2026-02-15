@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useCallback, useRef, useState, useEffect } from 'react';
+import React, { useLayoutEffect, useCallback, useRef, useState, useEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -17,6 +17,8 @@ import { AnnotationV2, AnnotationType, AnnotationSelector } from '../../types/an
 import { ANNOTATION_TYPE_CONFIGS } from '../../constants/annotationTypes';
 import AnnotationHoverCard from '../Annotations/AnnotationHoverCard';
 import { setEditorScrollCallback, triggerEditorScroll, triggerScrollSync } from './MarkdownEditor';
+import FrontmatterCard from './FrontmatterCard';
+import MermaidBlock from './MermaidBlock';
 
 // ---------------------------------------------------------------------------
 // Rehype Preserve Positions Plugin
@@ -1065,6 +1067,9 @@ export default function AnnotatedPreview() {
     return offset;
   }, [content]);
 
+  // スクロール同期の世代カウンタ（フィードバックループ防止）
+  const syncGenerationRef = useRef(0);
+
   // (A) エディタ→プレビュー: エディタスクロール時にプレビューを追従
   useEffect(() => {
     const scrollSyncEnabled = settings.editor.scrollSync ?? true;
@@ -1080,6 +1085,8 @@ export default function AnnotatedPreview() {
       const contentEl = contentRef.current;
       if (!scrollContainer || !contentEl) return;
 
+      // 世代カウンタをインクリメント — 進行中のプレビュー→エディタ同期を無効化
+      syncGenerationRef.current++;
       isScrollingFromEditorRef.current = true;
 
       // 行番号 → ソースオフセット → [data-s] スパンで最も近い要素を検索
@@ -1105,13 +1112,13 @@ export default function AnnotatedPreview() {
         const targetScroll = scrollContainer.scrollTop + elRect.top - containerRect.top - 20;
         scrollContainer.scrollTo({
           top: Math.max(0, targetScroll),
-          behavior: 'smooth',
+          behavior: 'auto',
         });
       }
 
       setTimeout(() => {
         isScrollingFromEditorRef.current = false;
-      }, 200);
+      }, 80);
     };
 
     setEditorScrollCallback(handleEditorScroll);
@@ -1131,8 +1138,13 @@ export default function AnnotatedPreview() {
     const handlePreviewScroll = () => {
       if (isScrollingFromEditorRef.current) return;
 
+      // 現在の世代を捕捉
+      const gen = syncGenerationRef.current;
+
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
+        // 世代が変わっていたら（エディタ側からの新しい同期が発生した）スキップ
+        if (gen !== syncGenerationRef.current) return;
         if (isScrollingFromEditorRef.current) return;
 
         const contentEl = contentRef.current;
@@ -1153,14 +1165,14 @@ export default function AnnotatedPreview() {
             triggerScrollSync(line);
             setTimeout(() => {
               isScrollingFromPreviewRef.current = false;
-            }, 200);
+            }, 80);
             break;
           }
         }
-      }, 100);
+      }, 150);
     };
 
-    scrollContainer.addEventListener('scroll', handlePreviewScroll);
+    scrollContainer.addEventListener('scroll', handlePreviewScroll, { passive: true });
     return () => {
       scrollContainer.removeEventListener('scroll', handlePreviewScroll);
       if (debounceTimer) clearTimeout(debounceTimer);
@@ -1174,6 +1186,46 @@ export default function AnnotatedPreview() {
       if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
     };
   }, []);
+
+  // Mermaid コードブロック intercept
+  const markdownComponents = useMemo(() => ({
+    code({ inline, className, children, ...props }: any) {
+      const match = /language-(\w+)/.exec(className || '');
+      if (!inline && match?.[1] === 'mermaid') {
+        return <MermaidBlock code={String(children).replace(/\n$/, '')} />;
+      }
+      return <code className={className} {...props}>{children}</code>;
+    },
+    img({ src, alt, ...props }: any) {
+      const resolvedSrc = (() => {
+        if (!src) return src;
+        // http/https/data URI はそのまま
+        if (/^(https?:|data:)/.test(src)) return src;
+        // currentFile の親ディレクトリから相対パスを解決
+        if (!currentFile) return src;
+        const dir = currentFile.substring(0, currentFile.lastIndexOf('/'));
+        const cleanSrc = src.replace(/^\.\//, '');
+        const absolutePath = dir + '/' + cleanSrc;
+        return 'local-file://' + absolutePath;
+      })();
+
+      return (
+        <img
+          src={resolvedSrc}
+          alt={alt}
+          onError={(e) => {
+            const target = e.currentTarget;
+            target.style.display = 'none';
+            const fallback = document.createElement('span');
+            fallback.style.cssText = 'display:inline-block;padding:8px 12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:4px;color:var(--text-muted);font-size:12px';
+            fallback.textContent = `🖼️ ${alt || src || '画像を読み込めません'}`;
+            target.parentNode?.insertBefore(fallback, target.nextSibling);
+          }}
+          {...props}
+        />
+      );
+    },
+  }), [currentFile]);
 
   if (!currentFile) {
     return (
@@ -1198,9 +1250,11 @@ export default function AnnotatedPreview() {
           onClick={handleClick}
           style={{ cursor: hoveredAnnotation ? 'pointer' : undefined, position: 'relative' }}
         >
+          <FrontmatterCard content={content} />
           <ReactMarkdown
             remarkPlugins={[remarkGfm, remarkMath]}
             rehypePlugins={[rehypeRaw, rehypePreservePositions, rehypeKatex, rehypePreservePositions, rehypeSourceMap]}
+            components={markdownComponents}
           >
             {content}
           </ReactMarkdown>
