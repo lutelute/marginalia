@@ -1,17 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useBuild } from '../../contexts/BuildContext';
 
 type SourceFilter = 'all' | 'builtin' | 'custom';
+type GalleryTab = 'templates' | 'guides';
 
-function TemplateGallery() {
-  const { catalog, projectDir, manifestData, selectedManifestPath, updateManifestData, createCustomTemplate, deleteCustomTemplate } = useBuild();
+interface TemplateGalleryProps {
+  onApplyTemplate?: (name: string) => void;
+  onPopOut?: () => void;
+  onClose?: () => void;
+  isModal?: boolean;
+  isWindow?: boolean;
+}
+
+type PreviewTab = 'pdf' | 'yaml' | 'md';
+
+function TemplateGallery({ onApplyTemplate, onPopOut, onClose, isModal, isWindow }: TemplateGalleryProps = {}) {
+  const { catalog, projectDir, manifestData, selectedManifestPath, updateManifestData, saveManifest, createCustomTemplate, deleteCustomTemplate } = useBuild();
   const [previewTemplate, setPreviewTemplate] = useState<string | null>(null);
+  const [previewTab, setPreviewTab] = useState<PreviewTab>('pdf');
+  const [previewYaml, setPreviewYaml] = useState<string | null>(null);
+  const [previewMdSections, setPreviewMdSections] = useState<{name: string; content: string}[]>([]);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [galleryTab, setGalleryTab] = useState<GalleryTab>('templates');
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
   const [baseTemplate, setBaseTemplate] = useState('');
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [applyFeedback, setApplyFeedback] = useState<string | null>(null);
 
   if (!catalog || !catalog.templates) {
     return (
@@ -30,9 +47,74 @@ function TemplateGallery() {
   const builtinCount = allTemplates.filter(([, t]) => t._source === 'builtin').length;
   const customCount = allTemplates.filter(([, t]) => t._source === 'custom').length;
 
-  const handleApply = (templateName: string) => {
+  // プレビューモーダル展開時にYAML/MDデータをロード
+  const loadPreviewData = useCallback(async (templateName: string) => {
+    if (!projectDir || !catalog?.templates[templateName]) return;
+    setPreviewLoading(true);
+    setPreviewYaml(null);
+    setPreviewMdSections([]);
+
+    const tmpl = catalog.templates[templateName];
+    // preview フィールドからデモマニフェストパスを導出
+    const previewFile = tmpl.preview; // e.g. "demo-report.pdf"
+    const stem = previewFile ? previewFile.replace(/\.[^/.]+$/, '') : null;
+    const manifestPath = stem ? `${projectDir}/projects/${stem}.yaml` : null;
+
+    try {
+      if (manifestPath) {
+        const yamlText = await window.electronAPI!.readFile(manifestPath);
+        setPreviewYaml(yamlText);
+
+        // YAML から sections を抽出
+        const sectionsMatch = yamlText.match(/^sections:\s*\n((?:\s+-\s+.+\n?)*)/m);
+        if (sectionsMatch) {
+          const sectionLines = sectionsMatch[1].match(/^\s+-\s+(.+)$/gm) || [];
+          const sectionPaths = sectionLines.map(l => l.replace(/^\s+-\s+/, '').trim());
+
+          const mdResults: {name: string; content: string}[] = [];
+          for (const sp of sectionPaths) {
+            try {
+              const fullPath = `${projectDir}/${sp}`;
+              const content = await window.electronAPI!.readFile(fullPath);
+              mdResults.push({ name: sp.split('/').pop() || sp, content });
+            } catch {
+              mdResults.push({ name: sp.split('/').pop() || sp, content: '(読み込み失敗)' });
+            }
+          }
+          setPreviewMdSections(mdResults);
+        }
+      }
+    } catch {
+      // マニフェストファイルが存在しない場合は無視
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [projectDir, catalog]);
+
+  const handleExpandPreview = useCallback((name: string) => {
+    if (previewTemplate === name) {
+      setPreviewTemplate(null);
+      return;
+    }
+    setPreviewTemplate(name);
+    setPreviewTab('pdf');
+    loadPreviewData(name);
+  }, [previewTemplate, loadPreviewData]);
+
+  const handleApply = async (templateName: string) => {
+    if (onApplyTemplate) {
+      onApplyTemplate(templateName);
+      return;
+    }
     if (!manifestData || !selectedManifestPath) return;
-    updateManifestData({ ...manifestData, template: templateName });
+    const updatedData = { ...manifestData, template: templateName };
+    updateManifestData(updatedData);
+
+    const ok = await saveManifest(selectedManifestPath, updatedData);
+    if (ok) {
+      setApplyFeedback(templateName);
+      setTimeout(() => setApplyFeedback(null), 2000);
+    }
   };
 
   const handleCreate = async () => {
@@ -44,6 +126,7 @@ function TemplateGallery() {
       setShowCreateDialog(false);
       setNewTemplateName('');
       setBaseTemplate('');
+      if (isWindow) window.electronAPI?.galleryNotifyChange();
     } else {
       alert(result.error || '作成に失敗しました');
     }
@@ -54,6 +137,7 @@ function TemplateGallery() {
     setDeleting(name);
     await deleteCustomTemplate(name);
     setDeleting(null);
+    if (isWindow) window.electronAPI?.galleryNotifyChange();
   };
 
   return (
@@ -64,100 +148,130 @@ function TemplateGallery() {
         <button className="tg-create-btn" onClick={() => setShowCreateDialog(true)} title="カスタムテンプレートを作成">
           + 作成
         </button>
+        <div className="tg-header-actions">
+          {(isModal) && onPopOut && (
+            <button className="tg-header-btn" onClick={onPopOut} title="別ウィンドウで開く">
+              <PopOutIcon />
+            </button>
+          )}
+          {(isModal || isWindow) && onClose && (
+            <button className="tg-header-btn" onClick={onClose} title="閉じる">
+              <CloseIcon />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* フィルタ切替 */}
-      <div className="tg-filter-bar">
-        <button className={`tg-filter-btn ${sourceFilter === 'all' ? 'active' : ''}`} onClick={() => setSourceFilter('all')}>
-          すべて ({allTemplates.length})
+      {/* メインタブ切替 */}
+      <div className="tg-main-tabs">
+        <button className={`tg-main-tab ${galleryTab === 'templates' ? 'active' : ''}`} onClick={() => setGalleryTab('templates')}>
+          <TemplatesTabIcon />
+          テンプレート
         </button>
-        <button className={`tg-filter-btn ${sourceFilter === 'builtin' ? 'active' : ''}`} onClick={() => setSourceFilter('builtin')}>
-          共通 ({builtinCount})
-        </button>
-        <button className={`tg-filter-btn ${sourceFilter === 'custom' ? 'active' : ''}`} onClick={() => setSourceFilter('custom')}>
-          カスタム ({customCount})
+        <button className={`tg-main-tab ${galleryTab === 'guides' ? 'active' : ''}`} onClick={() => setGalleryTab('guides')}>
+          <GuidesTabIcon />
+          ビルドガイド
         </button>
       </div>
 
-      <div className="template-gallery-grid">
-        {templates.map(([name, tmpl]) => (
-          <div key={name} className={`template-gallery-card ${manifestData?.template === name ? 'selected' : ''}`}>
-            {/* PDF Thumbnail */}
-            {tmpl.preview && projectDir ? (
-              <div className="template-gallery-preview" onClick={() => setPreviewTemplate(previewTemplate === name ? null : name)}>
-                <iframe
-                  src={`local-file://${projectDir}/output/${tmpl.preview}`}
-                  title={name}
-                  className="template-gallery-iframe"
-                />
-                <div className="template-gallery-preview-overlay">Click to expand</div>
-              </div>
-            ) : (
-              <div className="template-gallery-no-preview">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.3">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                </svg>
-                <span>No Preview</span>
-              </div>
-            )}
-
-            {/* Card Content */}
-            <div className="template-gallery-card-body">
-              <div className="template-gallery-card-header">
-                <span className={`template-gallery-type-badge tg-type-${tmpl.type || 'other'}`}>
-                  {tmpl.type || 'other'}
-                </span>
-                <span className={`tg-source-badge tg-source-${tmpl._source || 'builtin'}`}>
-                  {tmpl._source === 'custom' ? 'custom' : 'builtin'}
-                </span>
-                <span className="template-gallery-card-name">{name}</span>
-              </div>
-
-              {tmpl.description && (
-                <p className="template-gallery-card-desc">{tmpl.description}</p>
-              )}
-
-              {tmpl.features && tmpl.features.length > 0 && (
-                <div className="template-gallery-tags">
-                  {tmpl.features.map(f => (
-                    <span key={f} className="template-gallery-feature-tag">{f}</span>
-                  ))}
-                </div>
-              )}
-
-              {tmpl.styles && tmpl.styles.length > 0 && (
-                <div className="template-gallery-tags">
-                  {tmpl.styles.map(s => (
-                    <span key={s} className="template-gallery-style-tag">{s}</span>
-                  ))}
-                </div>
-              )}
-
-              <div className="tg-card-actions">
-                <button
-                  className="template-gallery-apply-btn"
-                  onClick={() => handleApply(name)}
-                  disabled={!selectedManifestPath}
-                  title={!selectedManifestPath ? 'マニフェストを選択してください' : `${name} をマニフェストに適用`}
-                >
-                  {manifestData?.template === name ? 'Applied' : 'Apply'}
-                </button>
-                {tmpl._source === 'custom' && (
-                  <button
-                    className="tg-delete-btn"
-                    onClick={() => handleDelete(name)}
-                    disabled={deleting === name}
-                    title="カスタムテンプレートを削除"
-                  >
-                    {deleting === name ? '...' : '削除'}
-                  </button>
-                )}
-              </div>
-            </div>
+      {galleryTab === 'templates' ? (
+        <>
+          {/* フィルタ切替 */}
+          <div className="tg-filter-bar">
+            <button className={`tg-filter-btn ${sourceFilter === 'all' ? 'active' : ''}`} onClick={() => setSourceFilter('all')}>
+              すべて ({allTemplates.length})
+            </button>
+            <button className={`tg-filter-btn ${sourceFilter === 'builtin' ? 'active' : ''}`} onClick={() => setSourceFilter('builtin')}>
+              共通 ({builtinCount})
+            </button>
+            <button className={`tg-filter-btn ${sourceFilter === 'custom' ? 'active' : ''}`} onClick={() => setSourceFilter('custom')}>
+              カスタム ({customCount})
+            </button>
           </div>
-        ))}
-      </div>
+
+          <div className="template-gallery-grid">
+            {templates.map(([name, tmpl]) => (
+              <div key={name} className={`template-gallery-card ${manifestData?.template === name ? 'selected' : ''}`}>
+                {/* PDF Thumbnail */}
+                {tmpl.preview && projectDir ? (
+                  <div className="template-gallery-preview" onClick={() => handleExpandPreview(name)}>
+                    <iframe
+                      src={`local-file://${projectDir}/output/${tmpl.preview}`}
+                      title={name}
+                      className="template-gallery-iframe"
+                    />
+                    <div className="template-gallery-preview-overlay">Click to expand</div>
+                  </div>
+                ) : (
+                  <div className="template-gallery-no-preview">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.3">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                    <span>No Preview</span>
+                  </div>
+                )}
+
+                {/* Card Content */}
+                <div className="template-gallery-card-body">
+                  <div className="template-gallery-card-header">
+                    <span className={`template-gallery-type-badge tg-type-${tmpl.type || 'other'}`}>
+                      {tmpl.type || 'other'}
+                    </span>
+                    <span className={`tg-source-badge tg-source-${tmpl._source || 'builtin'}`}>
+                      {tmpl._source === 'custom' ? 'custom' : 'builtin'}
+                    </span>
+                    <span className="template-gallery-card-name">{name}</span>
+                  </div>
+
+                  {tmpl.description && (
+                    <p className="template-gallery-card-desc">{tmpl.description}</p>
+                  )}
+
+                  {tmpl.features && tmpl.features.length > 0 && (
+                    <div className="template-gallery-tags">
+                      {tmpl.features.map(f => (
+                        <span key={f} className="template-gallery-feature-tag">{f}</span>
+                      ))}
+                    </div>
+                  )}
+
+                  {tmpl.styles && tmpl.styles.length > 0 && (
+                    <div className="template-gallery-tags">
+                      {tmpl.styles.map(s => (
+                        <span key={s} className="template-gallery-style-tag">{s}</span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="tg-card-actions">
+                    <button
+                      className="template-gallery-apply-btn"
+                      onClick={() => handleApply(name)}
+                      disabled={!selectedManifestPath}
+                      title={!selectedManifestPath ? 'マニフェストを選択してください' : `${name} をマニフェストに適用`}
+                    >
+                      {applyFeedback === name ? '適用済み ✓' : manifestData?.template === name ? 'Applied' : 'Apply'}
+                    </button>
+                    {tmpl._source === 'custom' && (
+                      <button
+                        className="tg-delete-btn"
+                        onClick={() => handleDelete(name)}
+                        disabled={deleting === name}
+                        title="カスタムテンプレートを削除"
+                      >
+                        {deleting === name ? '...' : '削除'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        <BuildGuides />
+      )}
 
       {/* Create Dialog */}
       {showCreateDialog && (
@@ -203,19 +317,60 @@ function TemplateGallery() {
         </div>
       )}
 
-      {/* Expanded preview modal */}
-      {previewTemplate && projectDir && catalog.templates[previewTemplate]?.preview && (
+      {/* Expanded preview modal with tabs */}
+      {previewTemplate && projectDir && (
         <div className="template-gallery-modal" onClick={() => setPreviewTemplate(null)}>
           <div className="template-gallery-modal-content" onClick={e => e.stopPropagation()}>
             <div className="template-gallery-modal-header">
               <span>{previewTemplate}</span>
+              <div className="tg-preview-tabs">
+                <button className={`tg-preview-tab ${previewTab === 'pdf' ? 'active' : ''}`} onClick={() => setPreviewTab('pdf')}>PDF</button>
+                <button className={`tg-preview-tab ${previewTab === 'yaml' ? 'active' : ''}`} onClick={() => setPreviewTab('yaml')}>YAML</button>
+                <button className={`tg-preview-tab ${previewTab === 'md' ? 'active' : ''}`} onClick={() => setPreviewTab('md')}>Markdown</button>
+              </div>
               <button onClick={() => setPreviewTemplate(null)}>✕</button>
             </div>
-            <iframe
-              src={`local-file://${projectDir}/templates/${catalog.templates[previewTemplate].preview}`}
-              title={previewTemplate}
-              className="template-gallery-modal-iframe"
-            />
+
+            {previewTab === 'pdf' && (
+              catalog.templates[previewTemplate]?.preview ? (
+                <iframe
+                  src={`local-file://${projectDir}/output/${catalog.templates[previewTemplate].preview}`}
+                  title={previewTemplate}
+                  className="template-gallery-modal-iframe"
+                />
+              ) : (
+                <div className="tg-preview-empty">No Preview</div>
+              )
+            )}
+
+            {previewTab === 'yaml' && (
+              <div className="tg-preview-code-container">
+                {previewLoading ? (
+                  <div className="tg-preview-empty">読み込み中...</div>
+                ) : previewYaml ? (
+                  <pre className="tg-preview-code">{previewYaml}</pre>
+                ) : (
+                  <div className="tg-preview-empty">対応するマニフェストが見つかりません</div>
+                )}
+              </div>
+            )}
+
+            {previewTab === 'md' && (
+              <div className="tg-preview-code-container">
+                {previewLoading ? (
+                  <div className="tg-preview-empty">読み込み中...</div>
+                ) : previewMdSections.length > 0 ? (
+                  previewMdSections.map((section, i) => (
+                    <div key={i} className="tg-preview-md-section">
+                      <div className="tg-preview-md-filename">{section.name}</div>
+                      <pre className="tg-preview-code">{section.content}</pre>
+                    </div>
+                  ))
+                ) : (
+                  <div className="tg-preview-empty">マークダウンセクションが見つかりません</div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -259,6 +414,28 @@ function TemplateGallery() {
         }
         .tg-create-btn:hover {
           background: var(--accent-hover);
+        }
+        .tg-header-actions {
+          display: flex;
+          gap: 4px;
+          margin-left: 8px;
+        }
+        .tg-header-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          border-radius: 4px;
+          background: transparent;
+          border: none;
+          color: var(--text-muted);
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+        .tg-header-btn:hover {
+          background: var(--bg-hover);
+          color: var(--text-primary);
         }
         .tg-filter-bar {
           display: flex;
@@ -518,6 +695,76 @@ function TemplateGallery() {
           width: 100%;
           border: none;
         }
+        .tg-preview-tabs {
+          display: flex;
+          gap: 2px;
+          margin-left: 16px;
+          flex: 1;
+        }
+        .tg-preview-tab {
+          padding: 4px 12px;
+          border: none;
+          background: transparent;
+          color: var(--text-muted);
+          font-size: 12px;
+          font-weight: 600;
+          border-radius: 4px;
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+        .tg-preview-tab:hover {
+          background: var(--bg-hover);
+          color: var(--text-primary);
+        }
+        .tg-preview-tab.active {
+          background: var(--accent-color);
+          color: white;
+        }
+        .tg-preview-code-container {
+          flex: 1;
+          overflow: auto;
+          padding: 16px;
+          background: var(--bg-primary);
+        }
+        .tg-preview-code {
+          font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+          font-size: 12px;
+          line-height: 1.6;
+          color: var(--text-secondary);
+          white-space: pre-wrap;
+          word-break: break-word;
+          margin: 0;
+          padding: 12px;
+          background: var(--bg-tertiary);
+          border: 1px solid var(--border-color);
+          border-radius: 6px;
+        }
+        .tg-preview-md-section {
+          margin-bottom: 16px;
+        }
+        .tg-preview-md-filename {
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--accent-color);
+          padding: 4px 8px;
+          background: var(--bg-secondary);
+          border: 1px solid var(--border-color);
+          border-bottom: none;
+          border-radius: 6px 6px 0 0;
+          font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+        }
+        .tg-preview-md-section .tg-preview-code {
+          border-radius: 0 0 6px 6px;
+        }
+        .tg-preview-empty {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--text-muted);
+          font-size: 14px;
+          min-height: 200px;
+        }
         .tg-create-dialog {
           width: 400px;
           background: var(--bg-secondary);
@@ -566,8 +813,640 @@ function TemplateGallery() {
           opacity: 0.5;
           cursor: not-allowed;
         }
+
+        /* Main Tabs */
+        .tg-main-tabs {
+          display: flex;
+          gap: 2px;
+          margin-bottom: 16px;
+          border-bottom: 1px solid var(--border-color);
+          padding-bottom: 0;
+        }
+        .tg-main-tab {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 16px;
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--text-muted);
+          border: none;
+          background: transparent;
+          cursor: pointer;
+          border-bottom: 2px solid transparent;
+          margin-bottom: -1px;
+          transition: all 0.15s;
+        }
+        .tg-main-tab:hover {
+          color: var(--text-primary);
+        }
+        .tg-main-tab.active {
+          color: var(--accent-color);
+          border-bottom-color: var(--accent-color);
+        }
+        .tg-main-tab svg {
+          flex-shrink: 0;
+        }
+
+        /* Guides */
+        .tg-guides {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .tg-guide-card {
+          border: 1px solid var(--border-color);
+          border-radius: 10px;
+          overflow: hidden;
+          background: var(--bg-secondary);
+          transition: border-color 0.2s;
+        }
+        .tg-guide-card:hover {
+          border-color: var(--text-muted);
+        }
+        .tg-guide-card.expanded {
+          border-color: var(--accent-color);
+        }
+        .tg-guide-card-header {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 16px 20px;
+          cursor: pointer;
+          user-select: none;
+        }
+        .tg-guide-card-header:hover {
+          background: var(--bg-hover);
+        }
+        .tg-guide-icon {
+          width: 48px;
+          height: 48px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 13px;
+          font-weight: 800;
+          letter-spacing: -0.5px;
+          flex-shrink: 0;
+        }
+        .tg-guide-icon-pdf {
+          background: linear-gradient(135deg, #e5574f 0%, #c0392b 100%);
+          color: white;
+        }
+        .tg-guide-icon-docx {
+          background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+          color: white;
+        }
+        .tg-guide-icon-yaml {
+          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+          color: white;
+        }
+        .tg-guide-title-area {
+          flex: 1;
+          min-width: 0;
+        }
+        .tg-guide-title-area h3 {
+          margin: 0 0 2px 0;
+          font-size: 15px;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+        .tg-guide-title-area p {
+          margin: 0;
+          font-size: 12px;
+          color: var(--text-muted);
+          line-height: 1.3;
+        }
+        .tg-guide-chevron {
+          display: flex;
+          align-items: center;
+          color: var(--text-muted);
+          transition: transform 0.2s;
+          flex-shrink: 0;
+        }
+        .tg-guide-chevron.open {
+          transform: rotate(180deg);
+        }
+        .tg-guide-body {
+          padding: 0 20px 20px 20px;
+          border-top: 1px solid var(--border-color);
+        }
+        .tg-guide-section {
+          margin-top: 16px;
+        }
+        .tg-guide-section h4 {
+          font-size: 12px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: var(--text-secondary);
+          margin: 0 0 8px 0;
+        }
+        .tg-guide-deps {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+        .tg-guide-dep {
+          font-size: 11px;
+          font-weight: 600;
+          padding: 3px 10px;
+          border-radius: 12px;
+          background: rgba(34, 197, 94, 0.12);
+          color: #22c55e;
+        }
+        .tg-guide-dep-opt {
+          background: rgba(107, 114, 128, 0.12);
+          color: var(--text-muted);
+        }
+        .tg-guide-steps {
+          margin: 0;
+          padding-left: 20px;
+          font-size: 13px;
+          line-height: 1.7;
+          color: var(--text-secondary);
+        }
+        .tg-guide-steps li {
+          margin-bottom: 4px;
+        }
+        .tg-guide-steps code {
+          font-size: 12px;
+          padding: 1px 5px;
+          background: var(--bg-tertiary);
+          border-radius: 3px;
+          color: var(--accent-color);
+        }
+        .tg-guide-code {
+          font-size: 12px;
+          line-height: 1.6;
+          padding: 14px 16px;
+          border-radius: 8px;
+          background: var(--bg-tertiary);
+          border: 1px solid var(--border-color);
+          color: var(--text-secondary);
+          overflow-x: auto;
+          margin: 0;
+          white-space: pre;
+          font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+        }
+        .tg-guide-flow {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 6px;
+          padding: 12px;
+          background: var(--bg-tertiary);
+          border-radius: 8px;
+        }
+        .tg-guide-flow-step {
+          font-size: 11px;
+          font-weight: 600;
+          padding: 4px 10px;
+          border-radius: 4px;
+          background: var(--bg-secondary);
+          color: var(--text-secondary);
+          border: 1px solid var(--border-color);
+          white-space: nowrap;
+        }
+        .tg-guide-flow-output {
+          background: var(--accent-color);
+          color: white;
+          border-color: var(--accent-color);
+        }
+        .tg-guide-flow-arrow {
+          color: var(--text-muted);
+          font-size: 14px;
+        }
+        .tg-guide-engines {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+        }
+        .tg-guide-engine {
+          padding: 12px;
+          border-radius: 8px;
+          background: var(--bg-tertiary);
+          border: 1px solid var(--border-color);
+        }
+        .tg-guide-engine h5 {
+          margin: 0 0 4px 0;
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+        .tg-guide-engine p {
+          margin: 0 0 8px 0;
+          font-size: 11px;
+          color: var(--text-muted);
+          line-height: 1.4;
+        }
+        .tg-guide-engine code {
+          font-size: 11px;
+          padding: 2px 6px;
+          background: var(--bg-secondary);
+          border-radius: 3px;
+          color: var(--accent-color);
+        }
+        .tg-guide-directives {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .tg-guide-directive {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 6px 10px;
+          border-radius: 6px;
+          background: var(--bg-tertiary);
+          font-size: 12px;
+        }
+        .tg-guide-directive code {
+          font-size: 11px;
+          color: var(--accent-color);
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+        .tg-guide-directive span {
+          color: var(--text-muted);
+          font-size: 11px;
+        }
+        .tg-guide-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 12px;
+        }
+        .tg-guide-table th {
+          text-align: left;
+          padding: 6px 10px;
+          background: var(--bg-tertiary);
+          color: var(--text-secondary);
+          font-weight: 600;
+          font-size: 11px;
+          border-bottom: 1px solid var(--border-color);
+        }
+        .tg-guide-table td {
+          padding: 5px 10px;
+          color: var(--text-secondary);
+          border-bottom: 1px solid var(--border-color);
+        }
+        .tg-guide-table td code {
+          font-size: 11px;
+          padding: 1px 4px;
+          background: var(--bg-tertiary);
+          border-radius: 3px;
+          color: var(--accent-color);
+        }
+        .tg-guide-table tr:last-child td {
+          border-bottom: none;
+        }
       `}</style>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Build Guides
+// ---------------------------------------------------------------------------
+
+function BuildGuides() {
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const toggle = (id: string) => setExpanded(expanded === id ? null : id);
+
+  return (
+    <div className="tg-guides">
+      {/* PDF */}
+      <div className={`tg-guide-card ${expanded === 'pdf' ? 'expanded' : ''}`}>
+        <div className="tg-guide-card-header" onClick={() => toggle('pdf')}>
+          <div className="tg-guide-icon tg-guide-icon-pdf">PDF</div>
+          <div className="tg-guide-title-area">
+            <h3>PDF ビルド</h3>
+            <p>Pandoc + XeLaTeX でマークダウンから高品質な PDF を生成</p>
+          </div>
+          <span className={`tg-guide-chevron ${expanded === 'pdf' ? 'open' : ''}`}>
+            <ChevronIcon />
+          </span>
+        </div>
+        {expanded === 'pdf' && (
+          <div className="tg-guide-body">
+            <div className="tg-guide-section">
+              <h4>必要な環境</h4>
+              <div className="tg-guide-deps">
+                <span className="tg-guide-dep">Python 3</span>
+                <span className="tg-guide-dep">Pandoc</span>
+                <span className="tg-guide-dep">XeLaTeX</span>
+              </div>
+            </div>
+
+            <div className="tg-guide-section">
+              <h4>ビルド手順</h4>
+              <ol className="tg-guide-steps">
+                <li><strong>マニフェスト作成</strong> — サイドバー BUILD セクションで新規マニフェスト (YAML) を作成</li>
+                <li><strong>テンプレート選択</strong> — 「テンプレート」タブからテンプレートを選び Apply</li>
+                <li><strong>セクション指定</strong> — sections に含める Markdown ファイルを順番に記述</li>
+                <li><strong>出力形式</strong> — output に <code>pdf</code> を指定</li>
+                <li><strong>ビルド実行</strong> — <code>Cmd+Shift+B</code> または BUILD パネルのビルドボタン</li>
+              </ol>
+            </div>
+
+            <div className="tg-guide-section">
+              <h4>サンプルマニフェスト</h4>
+              <pre className="tg-guide-code">{`title: "技術報告書 - Q4レビュー"
+subtitle: "2026年度 第4四半期"
+author: "開発チーム"
+date: "2026-01-15"
+template: report
+style: modern
+output: [pdf]
+lang: ja
+toc: true
+fontsize: 11pt
+
+sections:
+  - 01-introduction.md
+  - 02-methodology.md
+  - 03-results.md
+  - 04-conclusion.md
+
+# オプション
+primary-color: "0,51,102"
+numbering: true
+bibliography: references.bib
+csl: ieee.csl`}</pre>
+            </div>
+
+            <div className="tg-guide-section">
+              <h4>フロー</h4>
+              <div className="tg-guide-flow">
+                <span className="tg-guide-flow-step">Markdown</span>
+                <span className="tg-guide-flow-arrow">&rarr;</span>
+                <span className="tg-guide-flow-step">Pandoc + Lua フィルタ</span>
+                <span className="tg-guide-flow-arrow">&rarr;</span>
+                <span className="tg-guide-flow-step">LaTeX テンプレート</span>
+                <span className="tg-guide-flow-arrow">&rarr;</span>
+                <span className="tg-guide-flow-step">XeLaTeX</span>
+                <span className="tg-guide-flow-arrow">&rarr;</span>
+                <span className="tg-guide-flow-step tg-guide-flow-output">PDF</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* DOCX */}
+      <div className={`tg-guide-card ${expanded === 'docx' ? 'expanded' : ''}`}>
+        <div className="tg-guide-card-header" onClick={() => toggle('docx')}>
+          <div className="tg-guide-icon tg-guide-icon-docx">DOCX</div>
+          <div className="tg-guide-title-area">
+            <h3>DOCX ビルド</h3>
+            <p>Pandoc リファレンス方式 / python-docx 直接生成の2エンジン対応</p>
+          </div>
+          <span className={`tg-guide-chevron ${expanded === 'docx' ? 'open' : ''}`}>
+            <ChevronIcon />
+          </span>
+        </div>
+        {expanded === 'docx' && (
+          <div className="tg-guide-body">
+            <div className="tg-guide-section">
+              <h4>必要な環境</h4>
+              <div className="tg-guide-deps">
+                <span className="tg-guide-dep">Python 3</span>
+                <span className="tg-guide-dep">Pandoc</span>
+                <span className="tg-guide-dep tg-guide-dep-opt">python-docx (任意)</span>
+                <span className="tg-guide-dep tg-guide-dep-opt">lxml (任意)</span>
+              </div>
+            </div>
+
+            <div className="tg-guide-section">
+              <h4>2つのエンジン</h4>
+              <div className="tg-guide-engines">
+                <div className="tg-guide-engine">
+                  <h5>Pandoc (デフォルト)</h5>
+                  <p>Word リファレンステンプレートのスタイルを継承。汎用的で安定。</p>
+                  <code>docx-engine: pandoc</code>
+                </div>
+                <div className="tg-guide-engine">
+                  <h5>python-docx (高度)</h5>
+                  <p>Word XML を直接操作。SEQ フィールド、数式 (OMML)、図表自動番号付けに対応。</p>
+                  <code>docx-engine: python-docx</code>
+                </div>
+              </div>
+            </div>
+
+            <div className="tg-guide-section">
+              <h4>サンプルマニフェスト (Pandoc)</h4>
+              <pre className="tg-guide-code">{`title: "週次報告書"
+author: "山田太郎"
+date: "2026-02-10"
+template: report
+output: [docx]
+lang: ja
+
+sections:
+  - summary.md
+  - progress.md
+  - issues.md`}</pre>
+            </div>
+
+            <div className="tg-guide-section">
+              <h4>サンプルマニフェスト (python-docx)</h4>
+              <pre className="tg-guide-code">{`title: "設計仕様書 v2.1"
+author: "設計部"
+template: techspec
+output: [docx]
+docx-engine: python-docx
+lang: ja
+
+docx-direct:
+  anchor-heading: "1. はじめに"
+  chapter-prefix: null
+  crossref-mode: seq
+  first-line-indent: 10
+  page-break-before-h2: true
+
+sections:
+  - 01-overview.md
+  - 02-architecture.md
+  - 03-api-spec.md`}</pre>
+            </div>
+
+            <div className="tg-guide-section">
+              <h4>ディレクティブ (python-docx 専用)</h4>
+              <div className="tg-guide-directives">
+                <div className="tg-guide-directive">
+                  <code>&lt;!-- figure: path/to/img.png --&gt;</code>
+                  <span>図の挿入 + 自動番号</span>
+                </div>
+                <div className="tg-guide-directive">
+                  <code>&lt;!-- table: caption text --&gt;</code>
+                  <span>表キャプション + 自動番号</span>
+                </div>
+                <div className="tg-guide-directive">
+                  <code>&lt;!-- equation --&gt;</code>
+                  <span>LaTeX 数式 → OMML 変換</span>
+                </div>
+                <div className="tg-guide-directive">
+                  <code>&lt;!-- ref: fig:label --&gt;</code>
+                  <span>相互参照</span>
+                </div>
+                <div className="tg-guide-directive">
+                  <code>&lt;!-- pagebreak --&gt;</code>
+                  <span>改ページ</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* YAML Manifest */}
+      <div className={`tg-guide-card ${expanded === 'yaml' ? 'expanded' : ''}`}>
+        <div className="tg-guide-card-header" onClick={() => toggle('yaml')}>
+          <div className="tg-guide-icon tg-guide-icon-yaml">YAML</div>
+          <div className="tg-guide-title-area">
+            <h3>YAML マニフェスト リファレンス</h3>
+            <p>マニフェストで使用可能な全フィールドの一覧</p>
+          </div>
+          <span className={`tg-guide-chevron ${expanded === 'yaml' ? 'open' : ''}`}>
+            <ChevronIcon />
+          </span>
+        </div>
+        {expanded === 'yaml' && (
+          <div className="tg-guide-body">
+            <div className="tg-guide-section">
+              <h4>必須フィールド</h4>
+              <table className="tg-guide-table">
+                <thead><tr><th>フィールド</th><th>型</th><th>説明</th></tr></thead>
+                <tbody>
+                  <tr><td><code>title</code></td><td>string</td><td>ドキュメントタイトル</td></tr>
+                  <tr><td><code>template</code></td><td>string</td><td>使用テンプレート名 (report, paper, etc.)</td></tr>
+                  <tr><td><code>output</code></td><td>string[]</td><td>出力形式 [pdf], [docx], [pdf, docx]</td></tr>
+                  <tr><td><code>sections</code></td><td>string[]</td><td>ソース MD ファイル (順番に結合)</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="tg-guide-section">
+              <h4>メタデータ</h4>
+              <table className="tg-guide-table">
+                <thead><tr><th>フィールド</th><th>型</th><th>説明</th></tr></thead>
+                <tbody>
+                  <tr><td><code>subtitle</code></td><td>string</td><td>サブタイトル</td></tr>
+                  <tr><td><code>author</code></td><td>string | string[]</td><td>著者 (複数可)</td></tr>
+                  <tr><td><code>date</code></td><td>string</td><td>日付</td></tr>
+                  <tr><td><code>lang</code></td><td>string</td><td>言語 (ja, en)</td></tr>
+                  <tr><td><code>abstract</code></td><td>string</td><td>要旨・概要</td></tr>
+                  <tr><td><code>organization</code></td><td>string</td><td>組織名</td></tr>
+                  <tr><td><code>version</code></td><td>string</td><td>ドキュメントバージョン</td></tr>
+                  <tr><td><code>keywords</code></td><td>string[]</td><td>キーワード (論文用)</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="tg-guide-section">
+              <h4>レイアウト・スタイル</h4>
+              <table className="tg-guide-table">
+                <thead><tr><th>フィールド</th><th>型</th><th>説明</th></tr></thead>
+                <tbody>
+                  <tr><td><code>style</code></td><td>string</td><td>スタイルバリアント (modern, minimal, etc.)</td></tr>
+                  <tr><td><code>toc</code></td><td>boolean</td><td>目次を生成</td></tr>
+                  <tr><td><code>numbering</code></td><td>boolean</td><td>セクション番号を付与</td></tr>
+                  <tr><td><code>fontsize</code></td><td>string</td><td>フォントサイズ (11pt, 12pt)</td></tr>
+                  <tr><td><code>margin</code></td><td>string</td><td>余白 (2.5cm)</td></tr>
+                  <tr><td><code>line-spacing</code></td><td>number</td><td>行間 (1, 1.5, 2)</td></tr>
+                  <tr><td><code>primary-color</code></td><td>string</td><td>メインカラー RGB ("0,51,102")</td></tr>
+                  <tr><td><code>accent-color</code></td><td>string</td><td>アクセントカラー RGB</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="tg-guide-section">
+              <h4>フォント</h4>
+              <table className="tg-guide-table">
+                <thead><tr><th>フィールド</th><th>説明</th></tr></thead>
+                <tbody>
+                  <tr><td><code>mainfont</code></td><td>本文フォント</td></tr>
+                  <tr><td><code>sansfont</code></td><td>サンセリフフォント</td></tr>
+                  <tr><td><code>monofont</code></td><td>等幅フォント</td></tr>
+                  <tr><td><code>cjk-mainfont</code></td><td>CJK (日本語) フォント</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="tg-guide-section">
+              <h4>参考文献</h4>
+              <table className="tg-guide-table">
+                <thead><tr><th>フィールド</th><th>説明</th></tr></thead>
+                <tbody>
+                  <tr><td><code>bibliography</code></td><td>.bib ファイルパス (citeproc 有効化)</td></tr>
+                  <tr><td><code>csl</code></td><td>CSL スタイルファイル (ieee.csl 等)</td></tr>
+                  <tr><td><code>crossref</code></td><td>相互参照エンジン (builtin / pandoc-crossref)</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="tg-guide-section">
+              <h4>エンジン設定</h4>
+              <table className="tg-guide-table">
+                <thead><tr><th>フィールド</th><th>デフォルト</th><th>説明</th></tr></thead>
+                <tbody>
+                  <tr><td><code>pdf-engine</code></td><td>xelatex</td><td>PDF エンジン (xelatex / lualatex)</td></tr>
+                  <tr><td><code>docx-engine</code></td><td>pandoc</td><td>DOCX エンジン (pandoc / python-docx)</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ChevronIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+function TemplatesTabIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" />
+    </svg>
+  );
+}
+
+function GuidesTabIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+    </svg>
+  );
+}
+
+function PopOutIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <polyline points="15 3 21 3 21 9" />
+      <line x1="10" y1="14" x2="21" y2="3" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
   );
 }
 
