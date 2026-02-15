@@ -14,6 +14,10 @@ import AnnotationPanel from './components/Annotations/AnnotationPanel';
 import SettingsPanel from './components/Settings/SettingsPanel';
 import ToastContainer from './components/common/ToastContainer';
 import ExternalChangeWarning from './components/common/ExternalChangeWarning';
+import TemplateGallery from './components/Editor/TemplateGallery';
+
+// ギャラリー専用ウィンドウモード判定
+const isGalleryWindow = new URLSearchParams(window.location.search).get('view') === 'gallery';
 
 function ScrollSyncIcon() {
   return (
@@ -525,6 +529,10 @@ function AppStateProvider({ children }) {
     return saved ? parseInt(saved, 10) : 75;
   });
   const [viewingPdf, setViewingPdfState] = useState<string | null>(null);
+  const [isGalleryModalOpen, setIsGalleryModalOpen] = useState(false);
+
+  const openGalleryModal = useCallback(() => setIsGalleryModalOpen(true), []);
+  const closeGalleryModal = useCallback(() => setIsGalleryModalOpen(false), []);
 
   const toggleSidebar = useCallback(() => {
     setIsSidebarOpen((prev) => {
@@ -574,7 +582,7 @@ function AppStateProvider({ children }) {
   }, []);
 
   return (
-    <AppStateContext.Provider value={{ isSidebarOpen, editorMode, isAnnotationPanelOpen, explorerCollapsed, buildCollapsed, sidebarSplitRatio, viewingPdf, toggleSidebar, setEditorMode, toggleAnnotationPanel, toggleExplorer, toggleBuild, setSidebarSplitRatio, setViewingPdf }}>
+    <AppStateContext.Provider value={{ isSidebarOpen, editorMode, isAnnotationPanelOpen, explorerCollapsed, buildCollapsed, sidebarSplitRatio, viewingPdf, isGalleryModalOpen, toggleSidebar, setEditorMode, toggleAnnotationPanel, toggleExplorer, toggleBuild, setSidebarSplitRatio, setViewingPdf, openGalleryModal, closeGalleryModal }}>
       {children}
     </AppStateContext.Provider>
   );
@@ -594,7 +602,141 @@ function BuildProviderBridge({ children }: { children: React.ReactNode }) {
   return <BuildProvider rootPath={rootPath}>{children}</BuildProvider>;
 }
 
+// --- ギャラリー専用ウィンドウ ---
+function GalleryWindowApp() {
+  const [projectDir, setProjectDir] = useState<string | null>(null);
+
+  useEffect(() => {
+    window.electronAPI?.getGalleryProjectDir().then((dir) => setProjectDir(dir));
+  }, []);
+
+  if (!projectDir) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: '#888' }}>
+        Loading...
+      </div>
+    );
+  }
+
+  return (
+    <SettingsProvider>
+      <ToastProvider>
+        <BuildProvider rootPath={projectDir}>
+          <GalleryWindowContent />
+        </BuildProvider>
+      </ToastProvider>
+    </SettingsProvider>
+  );
+}
+
+function GalleryWindowContent() {
+  const { effectiveTheme } = useSettings();
+
+  useEffect(() => {
+    if (effectiveTheme === 'dark') {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  }, [effectiveTheme]);
+
+  const handleApply = useCallback((templateName: string) => {
+    window.electronAPI?.galleryApplyTemplate(templateName);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    window.close();
+  }, []);
+
+  return (
+    <div className="gallery-window-root">
+      <TemplateGallery
+        isWindow
+        onApplyTemplate={handleApply}
+        onClose={handleClose}
+      />
+      <ToastContainer />
+      <style>{`
+        .gallery-window-root {
+          height: 100vh;
+          padding-top: 28px;
+        }
+        .gallery-window-root .template-gallery-container {
+          height: 100%;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// --- ギャラリーモーダル ---
+function GalleryModal() {
+  const { isGalleryModalOpen, closeGalleryModal } = useAppState();
+  const { projectDir } = useBuild();
+
+  const handlePopOut = useCallback(() => {
+    closeGalleryModal();
+    if (projectDir) {
+      window.electronAPI?.openGalleryWindow(projectDir);
+    }
+  }, [closeGalleryModal, projectDir]);
+
+  useEffect(() => {
+    if (!isGalleryModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeGalleryModal();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isGalleryModalOpen, closeGalleryModal]);
+
+  if (!isGalleryModalOpen) return null;
+
+  return (
+    <div className="gallery-modal-overlay" onClick={closeGalleryModal}>
+      <div className="gallery-modal-body" onClick={(e) => e.stopPropagation()}>
+        <TemplateGallery
+          isModal
+          onPopOut={handlePopOut}
+          onClose={closeGalleryModal}
+        />
+      </div>
+      <style>{`
+        .gallery-modal-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 900;
+          background: rgba(0, 0, 0, 0.6);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          backdrop-filter: blur(2px);
+        }
+        .gallery-modal-body {
+          width: 90%;
+          max-width: 1100px;
+          height: 85%;
+          max-height: 800px;
+          border-radius: 12px;
+          overflow: hidden;
+          background: var(--bg-primary);
+          box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+          border: 1px solid var(--border-color);
+        }
+        .gallery-modal-body .template-gallery-container {
+          height: 100%;
+        }
+      `}</style>
+    </div>
+  );
+}
+
 function App() {
+  // ギャラリー専用ウィンドウモードの場合は専用レイアウトを返す
+  if (isGalleryWindow) {
+    return <GalleryWindowApp />;
+  }
+
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem('sidebarWidth');
     return saved ? parseInt(saved, 10) : 250;
@@ -649,8 +791,8 @@ function App() {
 }
 
 function AppContent({ sidebarWidth, annotationWidth, handleSidebarResize, handleAnnotationResize, appRef }) {
-  const { isSidebarOpen, isAnnotationPanelOpen, explorerCollapsed, buildCollapsed, sidebarSplitRatio, toggleExplorer, toggleBuild, setSidebarSplitRatio } = useAppState();
-  const { isProject, projectDir } = useBuild();
+  const { isSidebarOpen, isAnnotationPanelOpen, explorerCollapsed, buildCollapsed, sidebarSplitRatio, toggleExplorer, toggleBuild, setSidebarSplitRatio, openGalleryModal } = useAppState();
+  const { isProject, projectDir, manifestData, selectedManifestPath, updateManifestData, saveManifest, refreshFromDisk } = useBuild();
   const { rootPath } = useFile();
   const { activeTab, openTerminalTab } = useTab();
   const editorMode = activeTab?.editorMode || 'split';
@@ -669,6 +811,37 @@ function AppContent({ sidebarWidth, annotationWidth, handleSidebarResize, handle
     });
     return cleanup;
   }, [openTerminalTab, rootPath]);
+
+  // ⌘+Shift+T でギャラリーモーダルを開く (メニューイベント)
+  useEffect(() => {
+    if (!window.electronAPI?.onOpenGallery) return;
+    const cleanup = window.electronAPI.onOpenGallery(() => {
+      openGalleryModal();
+    });
+    return cleanup;
+  }, [openGalleryModal]);
+
+  // ギャラリーウィンドウからテンプレート適用
+  useEffect(() => {
+    if (!window.electronAPI?.onGalleryApplyTemplate) return;
+    const cleanup = window.electronAPI.onGalleryApplyTemplate(async (templateName: string) => {
+      if (manifestData && selectedManifestPath) {
+        const updatedData = { ...manifestData, template: templateName };
+        updateManifestData(updatedData);
+        await saveManifest(selectedManifestPath, updatedData);
+      }
+    });
+    return cleanup;
+  }, [manifestData, selectedManifestPath, updateManifestData, saveManifest]);
+
+  // ギャラリーウィンドウからのデータ変更通知
+  useEffect(() => {
+    if (!window.electronAPI?.onGalleryDataChanged) return;
+    const cleanup = window.electronAPI.onGalleryDataChanged(() => {
+      refreshFromDisk();
+    });
+    return cleanup;
+  }, [refreshFromDisk]);
 
   return (
     <>
@@ -754,6 +927,7 @@ function AppContent({ sidebarWidth, annotationWidth, handleSidebarResize, handle
       </div>
       <TopBar />
       <SettingsModalWrapper />
+      <GalleryModal />
       <ToastContainer />
       <ExternalChangeWarning />
       <style>{`
