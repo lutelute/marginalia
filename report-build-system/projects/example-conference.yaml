@@ -1,0 +1,14 @@
+title: "Adaptive Rank Selection for Efficient Fine-Tuning of Large Language Models"
+author:
+  - "First Author, University of Example"
+  - "Second Author, Example Institute of Technology"
+date: "February 2026"
+template: conference
+output: [pdf]
+lang: en
+abstract: |
+  This paper proposes an adaptive rank selection mechanism for parameter-efficient fine-tuning of large language models.
+keywords: "large language models, fine-tuning, parameter efficiency, LoRA, rank selection"
+
+sections:
+  - src/examples/conference-sample.md

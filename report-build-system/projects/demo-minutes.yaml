@@ -1,0 +1,14 @@
+title: "AI基盤開発プロジェクト 定例会議"
+author: "プロジェクト管理室"
+date: "2026年2月3日"
+template: minutes
+output: [pdf]
+lang: ja
+meeting-place: "本社3F 会議室A"
+meeting-time: "14:00〜15:30"
+attendees: "田中（PM）、鈴木（開発リーダー）、佐藤（インフラ）、高橋（QA）、山田（デザイン）"
+
+sections:
+  - src/demo-minutes/01-agenda.md
+  - src/demo-minutes/02-reports.md
+  - src/demo-minutes/03-actions.md

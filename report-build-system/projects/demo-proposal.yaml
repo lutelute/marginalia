@@ -1,0 +1,16 @@
+title: "次世代AI基盤構築プロジェクト"
+subtitle: "プロジェクト提案書"
+author: "技術戦略部"
+date: "2026年2月"
+organization: "株式会社テクノロジーソリューションズ"
+template: proposal
+output: [pdf]
+lang: ja
+toc: true
+version: "1.0"
+abstract: "本提案書では、生成AIを活用した社内業務効率化基盤の構築について提案します。既存システムとの統合、セキュリティ確保、段階的な展開計画を含む包括的なプロジェクト計画を示します。"
+
+sections:
+  - src/demo-proposal/01-background.md
+  - src/demo-proposal/02-solution.md
+  - src/demo-proposal/03-schedule.md

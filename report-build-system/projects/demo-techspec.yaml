@@ -1,0 +1,17 @@
+title: "API Gateway 設計仕様書"
+subtitle: "マイクロサービス基盤"
+author: "インフラアーキテクチャチーム"
+date: "2026年2月5日"
+template: techspec
+output: [pdf]
+lang: ja
+toc: true
+doc-id: "SPEC-2026-0042"
+version: "0.3"
+status: "Draft"
+classification: "社外秘"
+
+sections:
+  - src/demo-techspec/01-overview.md
+  - src/demo-techspec/02-architecture.md
+  - src/demo-techspec/03-api-design.md

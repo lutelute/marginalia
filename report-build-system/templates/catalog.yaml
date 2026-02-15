@@ -1,0 +1,138 @@
+# Template Catalog
+# テンプレート一覧 — ./build --list で表示
+
+# === Report Templates (報告書) ===
+report:
+  description: "標準ビジネス報告書 — A4, 紺色見出し, ヘッダー/フッター付き"
+  type: report
+  features: [toc, subtitle, organization, abstract]
+  preview: demo-report.pdf
+  bundle:
+    pandoc:
+      pdf: latex/report.latex
+      docx: docx/report-reference.docx
+    python-docx:
+      docx: docx/report-inject.docx
+
+report-modern:
+  description: "モダンレポート — サンセリフ見出し, アクセントバー, 洗練デザイン"
+  type: report
+  features: [toc, subtitle, organization, abstract]
+  preview: demo-modern.pdf
+  bundle:
+    pandoc:
+      pdf: latex/report-modern.latex
+
+report-minimal:
+  description: "ミニマルレポート — 余白広め, 装飾なし, シンプル"
+  type: report
+  features: [toc, subtitle, abstract]
+  preview: demo-minimal.pdf
+  bundle:
+    pandoc:
+      pdf: latex/report-minimal.latex
+
+# === Paper Templates (論文) ===
+paper:
+  description: "学術論文 — A4, 番号付きセクション, 行番号対応"
+  type: paper
+  features: [toc, abstract, doublespacing]
+  preview: example-paper.pdf
+  bundle:
+    pandoc:
+      pdf: latex/paper.latex
+      docx: docx/paper-reference.docx
+
+# === Conference Templates (学会発表) ===
+conference:
+  description: "IEEE形式学会論文 — US Letter, 2段組, ローマ数字セクション"
+  type: conference
+  features: [abstract, keywords, references]
+  preview: example-conference.pdf
+  bundle:
+    pandoc:
+      pdf: latex/conference.latex
+
+# === Minutes Templates (議事録) ===
+minutes:
+  description: "会議議事録 — コンパクトヘッダー, 出席者, アクションアイテム"
+  type: minutes
+  features: [attendees, meeting-date, meeting-place]
+  preview: demo-minutes.pdf
+  bundle:
+    pandoc:
+      pdf: latex/minutes.latex
+
+# === Proposal Templates (提案書) ===
+proposal:
+  description: "プロジェクト提案書 — 表紙付き, エグゼクティブサマリー"
+  type: proposal
+  features: [toc, subtitle, organization, abstract]
+  preview: demo-proposal.pdf
+  bundle:
+    pandoc:
+      pdf: latex/proposal.latex
+
+# === Technical Specification Templates (技術仕様書) ===
+techspec:
+  description: "技術仕様書 — バージョン管理, ステータス表示, コードブロック重視"
+  type: techspec
+  features: [toc, version, status, doc-id]
+  preview: demo-techspec.pdf
+  bundle:
+    pandoc:
+      pdf: latex/techspec.latex
+
+# === Thesis Templates (論文) ===
+thesis:
+  description: "卒業論文・修士論文 — LuaLaTeX, 章番号, 表紙, 指導教員, 参考文献"
+  type: thesis
+  features: [toc, university, lab, advisors, bibliography]
+  bundle:
+    pandoc:
+      pdf: latex/thesis.latex
+
+# === Common YAML Parameters (共通パラメータ) ===
+# 全テンプレートで使用可能:
+#   title, subtitle, author, date, lang, toc, fontsize
+#   primary-color: "R,G,B"  — 見出し色 (例: "0,51,102")
+#   accent-color: "R,G,B"   — アクセント色
+#   margin: "2.5cm"          — 余白
+#   line-spacing: 1.5        — 行間 (1, 1.5, 2)
+#   numbering: true/false    — セクション番号
+#   organization: "組織名"   — 組織名
+
+# === Font Parameters (フォント) ===
+# mainfont: "フォント名"       — 本文フォント (デフォルト: Hiragino Mincho ProN)
+# sansfont: "フォント名"       — サンセリフフォント (デフォルト: Hiragino Sans)
+# monofont: "フォント名"       — 等幅フォント (デフォルト: Menlo)
+# cjk-mainfont: "フォント名"   — CJKフォント
+
+# === Layout Parameters (レイアウト) ===
+# cover-page: true/false    — 表紙ページ (report テンプレート)
+# toc-depth: 2              — 目次の深さ
+# lof: true                 — 図目次
+# lot: true                 — 表目次
+
+# === Bibliography (参考文献) ===
+# bibliography: "path/to/refs.bib"  — BibTeX ファイルパス (citeproc 自動有効化)
+# csl: "path/to/style.csl"          — CSL スタイルファイルパス
+
+# === Engine & Filters (エンジン・フィルター) ===
+# pdf-engine: xelatex/lualatex       — PDF エンジン (デフォルト: xelatex)
+# crossref: builtin/pandoc-crossref  — 相互参照フィルター (デフォルト: builtin)
+
+# === Thesis Parameters (論文) ===
+# university: "大学名"    — 大学・学部名
+# lab: "研究室名"          — 研究室名
+# advisors: ["教員名"]     — 指導教員リスト
+# documentclass: ltjsarticle  — ドキュメントクラス
+# classoption: [12pt, a4paper] — クラスオプション
+# linestretch: 1.0         — 行間
+
+# === Layout Divs (Markdown 内で使用) ===
+# ::: {.two-column} / {.three-column}  — 段組
+# ::: {.landscape}                      — 横置きページ
+# ::: {.pagebreak}                      — 改ページ
+# ::: {.wrap-figure .right width="0.4"} — 回り込み図
+# ::: {.here-figure}                    — 図のフロート抑制

@@ -1,0 +1,16 @@
+title: "月次進捗報告書"
+subtitle: "2026年1月度"
+author: "技術開発部"
+date: "2026年1月31日"
+template: report
+style: minimal
+output: [pdf]
+lang: ja
+toc: true
+
+sections:
+- src/demo/01-overview.md
+  - src/demo/02-ai-platform.md
+  - src/demo/03-data-pipeline.md
+  - src/demo/04-security.md
+  - src/demo/05-next-month.md

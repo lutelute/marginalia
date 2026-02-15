@@ -1,0 +1,12 @@
+# プロジェクト設定メモ
+user:
+  name: "重信颯人"
+  note: "名前はみだりに入力しない（テスト文書等に含めない）"
+
+templates_needed:
+  - report    # 業務報告書
+  - paper     # 学術論文
+  - conference # 学会発表用（未作成）
+
+known_issues:
+  - "DOCX出力の品質が低い → 要改善"

@@ -1,0 +1,356 @@
+#!/usr/bin/env python3
+"""
+Document assembly build system for Pandoc-based projects.
+
+Usage:
+    ./build projects/my-report.yaml          # Build all outputs defined in manifest
+    ./build projects/my-report.yaml --pdf    # Build PDF only
+    ./build projects/my-report.yaml --docx   # Build DOCX only
+    ./build                                   # Build all yaml files in projects/
+    ./build --list                           # List all available templates
+    ./build --list-params                    # List available YAML parameters
+"""
+
+import os
+import sys
+import yaml
+import tempfile
+import subprocess
+import argparse
+from pathlib import Path
+from typing import Dict, List, Optional, Any, Set
+
+# Engine registry
+from engines import get_engine, list_engines
+
+def get_project_root() -> Path:
+    """Get the project root directory."""
+    return Path(__file__).parent.absolute()
+
+def load_manifest(manifest_path: Path) -> Dict[str, Any]:
+    """Load and validate the YAML manifest."""
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"Manifest not found: {manifest_path}")
+    
+    with open(manifest_path, 'r', encoding='utf-8') as f:
+        manifest = yaml.safe_load(f)
+    
+    if not manifest:
+        raise ValueError(f"Empty manifest: {manifest_path}")
+    
+    return manifest
+
+def validate_manifest(manifest: Dict[str, Any]) -> None:
+    """Validate that required fields exist."""
+    if 'title' not in manifest:
+        raise ValueError("Manifest must have 'title' field")
+    
+    if 'sections' not in manifest and 'source' not in manifest:
+        raise ValueError("Manifest must have either 'sections' or 'source' field")
+    
+    if 'template' not in manifest:
+        raise ValueError("Manifest must have 'template' field")
+    
+    if 'output' not in manifest or not manifest['output']:
+        raise ValueError("Manifest must have 'output' field with at least one format")
+
+def strip_yaml_front_matter(text: str) -> str:
+    """Remove YAML front matter from markdown content."""
+    if text.startswith('---'):
+        # Find closing ---
+        end = text.find('\n---', 3)
+        if end != -1:
+            return text[end + 4:].lstrip('\n')
+    return text
+
+def concatenate_sections(manifest: Dict[str, Any], project_root: Path) -> str:
+    """Concatenate all source files with pagebreaks."""
+    content_parts = []
+
+    sections = manifest.get('sections', [])
+    source = manifest.get('source')
+
+    # Handle sections or single source
+    if sections:
+        for i, section_path in enumerate(sections):
+            if not Path(section_path).is_absolute():
+                full_path = project_root / section_path
+            else:
+                full_path = Path(section_path)
+
+            if not full_path.exists():
+                raise FileNotFoundError(f"Section file not found: {section_path}")
+
+            with open(full_path, 'r', encoding='utf-8') as f:
+                content = strip_yaml_front_matter(f.read())
+            content_parts.append(content)
+
+            # Add pagebreak between sections (not after last)
+            if i < len(sections) - 1:
+                content_parts.append("\n\n\\newpage\n\n")
+
+    elif source:
+        if not Path(source).is_absolute():
+            full_path = project_root / source
+        else:
+            full_path = Path(source)
+
+        if not full_path.exists():
+            raise FileNotFoundError(f"Source file not found: {source}")
+
+        with open(full_path, 'r', encoding='utf-8') as f:
+            content = strip_yaml_front_matter(f.read())
+        content_parts.append(content)
+
+    return ''.join(content_parts)
+
+def build_yaml_front_matter(manifest: Dict[str, Any]) -> str:
+    """Build YAML front matter from manifest.
+
+    Passes ALL keys from manifest as front matter except those reserved for
+    the build system itself: sections, source, template, output, style.
+    """
+    # Build system reserved fields that should not be passed to Pandoc
+    build_system_only = {'sections', 'source', 'template', 'output', 'style',
+                         'pdf-engine', 'bibliography', 'csl', 'crossref',
+                         'docx-engine', 'docx-direct'}
+
+    front_matter = {}
+    for key, value in manifest.items():
+        if key not in build_system_only:
+            front_matter[key] = value
+
+    # Convert to YAML string
+    yaml_str = yaml.dump(front_matter, allow_unicode=True, default_flow_style=False)
+    return f"---\n{yaml_str}---\n"
+
+def build_output(manifest: Dict[str, Any], format_type: str,
+                 temp_content: str, manifest_path: Path, project_root: Path) -> bool:
+    """Build a single output format via the engine registry."""
+    # Select engine: python-docx only applies to DOCX output
+    engine_name = 'pandoc'
+    if format_type == 'docx':
+        engine_name = manifest.get('docx-engine', 'pandoc')
+
+    try:
+        engine = get_engine(engine_name)
+    except ValueError as e:
+        print(f"ERROR: {e}")
+        return False
+
+    return engine.build(manifest, format_type, temp_content, manifest_path, project_root)
+
+def build_manifest(manifest_path: Path, output_formats: Optional[List[str]] = None) -> bool:
+    """Build outputs for a single manifest file."""
+    project_root = get_project_root()
+    
+    try:
+        manifest = load_manifest(manifest_path)
+        validate_manifest(manifest)
+        
+        # Determine which formats to build
+        formats = output_formats if output_formats else manifest.get('output', ['pdf'])
+        
+        # Concatenate sections
+        section_content = concatenate_sections(manifest, project_root)
+        
+        # Build front matter
+        front_matter = build_yaml_front_matter(manifest)
+        
+        # Combine front matter + content
+        temp_content = front_matter + section_content
+        
+        # Build each format
+        success = True
+        for fmt in formats:
+            if fmt not in ['pdf', 'docx']:
+                print(f"WARNING: Unknown format '{fmt}', skipping")
+                continue
+            
+            if not build_output(manifest, fmt, temp_content, manifest_path, project_root):
+                success = False
+        
+        return success
+    
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return False
+
+def find_manifests(project_root: Path) -> List[Path]:
+    """Find all YAML manifests in projects/ directory."""
+    projects_dir = project_root / 'projects'
+    if not projects_dir.exists():
+        return []
+
+    return sorted([f for f in projects_dir.glob('*.yaml') if f.is_file()])
+
+def list_templates(project_root: Path) -> None:
+    """List all available templates from templates/ directory."""
+    latex_dir = project_root / 'templates' / 'latex'
+    docx_dir = project_root / 'templates' / 'docx'
+
+    # Load template catalog if it exists
+    catalog_path = project_root / 'templates' / 'catalog.yaml'
+    catalog = {}
+    if catalog_path.exists():
+        with open(catalog_path, 'r', encoding='utf-8') as f:
+            catalog = yaml.safe_load(f) or {}
+
+    print("AVAILABLE TEMPLATES\n")
+
+    # List LaTeX templates
+    if latex_dir.exists():
+        print("LaTeX Templates:")
+        latex_templates = sorted([f.stem for f in latex_dir.glob('*.latex')])
+        for template in latex_templates:
+            # Check for both base and styled variants
+            base_variants = sorted([f.stem for f in latex_dir.glob(f'{template}*.latex')])
+            style_variants = [v.replace(f'{template}-', '') for v in base_variants if v != template]
+
+            description = catalog.get(f'{template}_latex', 'No description available')
+            print(f"  {template:20} {description}")
+
+            if style_variants:
+                print(f"    Styles: {', '.join(style_variants)}")
+
+    # List DOCX templates
+    if docx_dir.exists():
+        print("\nDOCX Templates:")
+        docx_templates = set()
+        for f in docx_dir.glob('*-reference.docx'):
+            docx_templates.add(f.stem.replace('-reference', ''))
+
+        for template in sorted(docx_templates):
+            # Check for styled variants
+            base_file = docx_dir / f'{template}-reference.docx'
+            base_variants = sorted([f.stem.replace('-reference', '') for f in docx_dir.glob(f'{template}*.docx')])
+            style_variants = [v.replace(f'{template}-', '') for v in base_variants if v != template]
+
+            description = catalog.get(f'{template}_docx', 'No description available')
+            print(f"  {template:20} {description}")
+
+            if style_variants:
+                print(f"    Styles: {', '.join(style_variants)}")
+
+def list_parameters() -> None:
+    """List available YAML parameters for manifest files."""
+    print("AVAILABLE YAML PARAMETERS\n")
+
+    print("Required Fields:")
+    print("  title              String - Document title")
+    print("  template           String - Template name (report, paper, conference)")
+    print("  output             List   - Output formats (pdf, docx)")
+    print()
+
+    print("Source Fields (choose one):")
+    print("  sections           List   - Paths to markdown files to concatenate with pagebreaks")
+    print("  source             String - Path to single markdown source file")
+    print()
+
+    print("Common Optional Fields:")
+    print("  subtitle           String - Document subtitle")
+    print("  author             String - Document author")
+    print("  date               String - Document date (YYYY-MM-DD)")
+    print("  lang               String - Language code (e.g., ja, en)")
+    print("  toc                Boolean - Include table of contents")
+    print("  fontsize           String - Base font size (e.g., 11pt, 12pt)")
+    print("  abstract           String - Abstract text")
+    print("  keywords           List   - Keywords for papers")
+    print()
+
+    print("Style Fields:")
+    print("  style              String - Template style variant (e.g., modern, simple)")
+    print("                             Looks for template-style.latex or template-style-reference.docx")
+    print()
+
+    print("Bibliography & Citation:")
+    print("  bibliography       String - Path to .bib file (enables citeproc)")
+    print("  csl                String - Path to CSL style file (e.g., ieee.csl)")
+    print()
+
+    print("Engine & Filters:")
+    print("  pdf-engine         String - PDF engine: xelatex (default) or lualatex")
+    print("  crossref           String - Cross-ref filter: builtin (default) or pandoc-crossref")
+    print()
+
+    print("Thesis Parameters:")
+    print("  university         String - University / department name")
+    print("  lab                String - Laboratory name")
+    print("  advisors           List   - Advisor names")
+    print("  documentclass      String - LaTeX document class (e.g., ltjsarticle)")
+    print("  classoption        List   - Class options (e.g., [12pt, a4paper])")
+    print("  linestretch        Number - Line stretch factor (e.g., 1.0)")
+    print()
+
+    print("Custom Fields:")
+    print("  Any other YAML key - Custom parameters passed to Pandoc templates")
+    print("                       All keys except build-system-only fields")
+    print("                       are forwarded to template rendering")
+    print()
+
+    print("Build-System-Only Fields (never passed to templates):")
+    print("  sections, source, template, output, style,")
+    print("  pdf-engine, bibliography, csl, crossref")
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Build documents from Pandoc-based manifests'
+    )
+    parser.add_argument('manifest', nargs='?',
+                       help='Path to manifest YAML file')
+    parser.add_argument('--pdf', action='store_true',
+                       help='Build PDF only')
+    parser.add_argument('--docx', action='store_true',
+                       help='Build DOCX only')
+    parser.add_argument('--list', action='store_true',
+                       help='List all available templates with descriptions')
+    parser.add_argument('--list-params', action='store_true',
+                       help='List available YAML parameters for manifest files')
+
+    args = parser.parse_args()
+    project_root = get_project_root()
+
+    # Handle --list flag
+    if args.list:
+        list_templates(project_root)
+        sys.exit(0)
+
+    # Handle --list-params flag
+    if args.list_params:
+        list_parameters()
+        sys.exit(0)
+
+    # Determine which manifests to build
+    if args.manifest:
+        # Build specified manifest
+        manifest_path = Path(args.manifest)
+        if not manifest_path.is_absolute():
+            manifest_path = project_root / manifest_path
+
+        manifests = [manifest_path]
+    else:
+        # Find all manifests in projects/
+        manifests = find_manifests(project_root)
+        if not manifests:
+            print("ERROR: No manifest specified and no YAML files found in projects/")
+            sys.exit(1)
+
+    # Determine output formats
+    output_formats = None
+    if args.pdf or args.docx:
+        output_formats = []
+        if args.pdf:
+            output_formats.append('pdf')
+        if args.docx:
+            output_formats.append('docx')
+
+    # Build all manifests
+    all_success = True
+    for manifest_path in manifests:
+        if not build_manifest(manifest_path, output_formats):
+            all_success = False
+
+    sys.exit(0 if all_success else 1)
+
+if __name__ == '__main__':
+    main()

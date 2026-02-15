@@ -1,0 +1,14 @@
+title: "大規模言語モデルの効率的ファインチューニングにおける適応的ランク選択"
+author:
+  - "First Author, University of Example"
+  - "Second Author, Example Institute of Technology"
+date: "2026"
+template: paper
+output: [pdf, docx]
+lang: ja
+abstract: |
+  本研究では、大規模言語モデルのパラメータ効率的ファインチューニングにおける
+  適応的ランク選択メカニズムを提案する。
+
+sections:
+  - src/examples/paper-sample.md

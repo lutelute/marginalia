@@ -1,0 +1,216 @@
+\documentclass[$if(fontsize)$$fontsize$$else$11pt$endif$,a4paper]{article}
+
+% Packages for XeTeX and font support
+\usepackage{fontspec}
+
+% Set main fonts
+$if(mainfont)$
+\setmainfont{$mainfont$}
+$else$
+\setmainfont{Hiragino Mincho ProN}
+$endif$
+$if(sansfont)$
+\setsansfont{$sansfont$}
+$else$
+\setsansfont{Hiragino Sans}
+$endif$
+$if(monofont)$
+\setmonofont{$monofont$}
+$else$
+\setmonofont{Menlo}
+$endif$
+
+% CJK font
+$if(cjk-mainfont)$
+\newfontfamily\cjkmainfont{$cjk-mainfont$}
+$else$
+\newfontfamily\cjkmainfont{Hiragino Mincho ProN}
+$endif$
+
+% Japanese line breaking support
+\XeTeXlinebreaklocale "ja"
+\XeTeXlinebreakskip=0pt plus 1pt
+\XeTeXlinebreakpenalty=0
+\emergencystretch=3em
+\tolerance=1000
+
+% Page geometry (customizable via margin YAML parameter)
+\usepackage[$if(geometry)$$for(geometry)$$geometry$$sep$,$endfor$$elseif(margin)$margin=$margin$$else$margin=3cm$endif$]{geometry}
+
+% Math support
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+% Line spacing (customizable)
+$if(line-spacing)$
+\usepackage{setspace}
+\setstretch{$line-spacing$}
+$elseif(doublespacing)$
+\usepackage{setspace}
+\doublespacing
+$endif$
+
+% Numbered sections
+\setcounter{secnumdepth}{3}
+
+% Colors (customizable via primary-color YAML parameter)
+\usepackage{xcolor}
+$if(primary-color)$
+\definecolor{primarycolor}{RGB}{$primary-color$}
+$else$
+\definecolor{primarycolor}{RGB}{0,0,128}
+$endif$
+
+% Header and footer
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+$if(header-left)$
+\fancyhead[L]{\small $header-left$}
+$else$
+\fancyhead[L]{\small\leftmark}
+$endif$
+\fancyhead[R]{\small\thepage}
+\fancyfoot[C]{}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\fancypagestyle{plain}{%
+  \fancyhf{}
+  \fancyfoot[C]{\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+}
+
+% Table support
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{calc}
+
+% Prevent table/text overflow
+\setlength{\LTpre}{1em}
+\setlength{\LTpost}{1em}
+
+% Code block support
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{gray!10},
+  breaklines=true,
+  frame=single,
+  framesep=3pt,
+  numbers=left,
+  numberstyle=\tiny,
+  rulecolor=\color{gray!30}
+}
+
+% Figure and image support with numbering
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+
+% Layout packages (for layout.lua filter)
+\usepackage{multicol}
+\usepackage{pdflscape}
+\usepackage{wrapfig}
+
+% Footnote support
+\usepackage[bottom]{footmisc}
+
+% Hyperref for links
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=primarycolor,
+  urlcolor=primarycolor,
+  citecolor=primarycolor,
+  bookmarksnumbered=true,
+  pdfencoding=auto
+}
+
+% Pandoc code highlighting support
+\usepackage{fancyvrb}
+\usepackage{framed}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.77,0.63,0.00}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+
+% Pandoc compatibility
+\providecommand{\tightlist}{\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+% Fix for pandoc 3.x longtable counter issue
+\makeatletter
+\@ifundefined{c@none}{\newcounter{none}}{}
+\makeatother
+
+$for(header-includes)$
+$header-includes$
+$endfor$
+
+$if(title)$
+\title{$title$}
+$endif$
+$if(author)$
+\author{$for(author)$$author$$sep$ \\ $endfor$}
+$endif$
+$if(date)$
+\date{$date$}
+$else$
+\date{}
+$endif$
+
+\begin{document}
+
+$if(title)$
+\maketitle
+\thispagestyle{plain}
+$endif$
+
+$if(toc)$
+\tableofcontents
+\newpage
+$endif$
+
+$if(abstract)$
+\begin{abstract}
+$abstract$
+\end{abstract}
+\vspace{1cm}
+$endif$
+
+$body$
+
+\end{document}

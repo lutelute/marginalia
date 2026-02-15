@@ -1,0 +1,34 @@
+title: "インバータ負荷モデル化に関する基礎研究"
+subtitle: "令和7年度 卒業論文"
+author: "鈴木 秀希"
+date: "令和8年2月9日提出"
+template: thesis
+pdf-engine: lualatex
+output: [pdf]
+lang: ja
+toc: true
+toc-depth: 3
+numbering: true
+crossref: pandoc-crossref
+
+university: "福井大学工学部電気電子情報工学科"
+lab: "電力システム研究室"
+advisors:
+  - "重信 颯人 講師"
+  - "髙橋 明子 特命准教授"
+  - "伊藤 雅一 教授"
+
+# bibliography: bib/references.bib
+# csl: bib/ieee.csl
+
+documentclass: ltjsarticle
+classoption: [12pt, a4paper]
+geometry: [top=25mm, bottom=25mm, left=30mm, right=25mm]
+linestretch: 1.0
+colorlinks: true
+linkcolor: "black"
+citecolor: "black"
+urlcolor: "blue"
+
+sections:
+  - src/demo/01-overview.md
