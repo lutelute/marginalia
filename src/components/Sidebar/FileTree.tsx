@@ -2,9 +2,22 @@ import React, { useState } from 'react';
 import { useFile } from '../../contexts/FileContext';
 import FileTreeItem from './FileTreeItem';
 
+type FileFilter = 'all' | 'local' | 'system';
+
 function FileTree() {
   const { rootPath, fileTree, openDirectory, openDirectoryByPath, refreshDirectory, isLoading, recentFolders, clearRecentFolders } = useFile();
   const [showRecentFolders, setShowRecentFolders] = useState(false);
+  const [fileFilter, setFileFilter] = useState<FileFilter>('all');
+
+  // フィルタに応じてファイルツリーを絞り込み
+  const filteredTree = fileFilter === 'all' ? fileTree : fileTree.filter((item: any) => {
+    if (fileFilter === 'system') return item.isSystem;
+    if (fileFilter === 'local') return !item.isSystem;
+    return true;
+  });
+
+  // システムファイルが存在するかチェック
+  const hasSystemFiles = fileTree.some((item: any) => item.isSystem);
 
   return (
     <div className="file-tree">
@@ -52,6 +65,21 @@ function FileTree() {
         </div>
       )}
 
+      {/* システム/ローカルフィルタバー */}
+      {rootPath && hasSystemFiles && (
+        <div className="file-filter-bar">
+          <button className={`file-filter-btn ${fileFilter === 'all' ? 'active' : ''}`} onClick={() => setFileFilter('all')}>
+            All
+          </button>
+          <button className={`file-filter-btn ${fileFilter === 'local' ? 'active' : ''}`} onClick={() => setFileFilter('local')}>
+            Local
+          </button>
+          <button className={`file-filter-btn ${fileFilter === 'system' ? 'active' : ''}`} onClick={() => setFileFilter('system')}>
+            System
+          </button>
+        </div>
+      )}
+
       <div className="file-tree-content">
         {!rootPath ? (
           <div className="file-tree-empty">
@@ -68,13 +96,13 @@ function FileTree() {
           </div>
         ) : isLoading ? (
           <div className="file-tree-loading">読み込み中...</div>
-        ) : fileTree.length === 0 ? (
+        ) : filteredTree.length === 0 ? (
           <div className="file-tree-empty">
-            <p>Markdownファイルがありません</p>
+            <p>{fileFilter === 'system' ? 'システムファイルがありません' : fileFilter === 'local' ? 'ローカルファイルがありません' : 'ファイルがありません'}</p>
           </div>
         ) : (
           <ul className="file-tree-list">
-            {fileTree.map((item) => (
+            {filteredTree.map((item: any) => (
               <FileTreeItem key={item.path} item={item} depth={0} />
             ))}
           </ul>
@@ -248,6 +276,38 @@ function FileTree() {
         .recent-folders-hint svg {
           width: 12px;
           height: 12px;
+        }
+
+        .file-filter-bar {
+          display: flex;
+          gap: 2px;
+          padding: 4px 8px;
+          border-bottom: 1px solid var(--border-color);
+          flex-shrink: 0;
+        }
+
+        .file-filter-btn {
+          flex: 1;
+          font-size: 10px;
+          font-weight: 600;
+          padding: 2px 6px;
+          border-radius: 3px;
+          border: 1px solid transparent;
+          background: transparent;
+          color: var(--text-muted);
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+
+        .file-filter-btn:hover:not(.active) {
+          background: var(--bg-hover);
+          color: var(--text-secondary);
+        }
+
+        .file-filter-btn.active {
+          background: var(--accent-color);
+          color: white;
+          border-color: var(--accent-color);
         }
       `}</style>
     </div>

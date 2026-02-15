@@ -1067,6 +1067,9 @@ export default function AnnotatedPreview() {
     return offset;
   }, [content]);
 
+  // スクロール同期の世代カウンタ（フィードバックループ防止）
+  const syncGenerationRef = useRef(0);
+
   // (A) エディタ→プレビュー: エディタスクロール時にプレビューを追従
   useEffect(() => {
     const scrollSyncEnabled = settings.editor.scrollSync ?? true;
@@ -1082,6 +1085,8 @@ export default function AnnotatedPreview() {
       const contentEl = contentRef.current;
       if (!scrollContainer || !contentEl) return;
 
+      // 世代カウンタをインクリメント — 進行中のプレビュー→エディタ同期を無効化
+      syncGenerationRef.current++;
       isScrollingFromEditorRef.current = true;
 
       // 行番号 → ソースオフセット → [data-s] スパンで最も近い要素を検索
@@ -1107,13 +1112,13 @@ export default function AnnotatedPreview() {
         const targetScroll = scrollContainer.scrollTop + elRect.top - containerRect.top - 20;
         scrollContainer.scrollTo({
           top: Math.max(0, targetScroll),
-          behavior: 'smooth',
+          behavior: 'auto',
         });
       }
 
       setTimeout(() => {
         isScrollingFromEditorRef.current = false;
-      }, 200);
+      }, 80);
     };
 
     setEditorScrollCallback(handleEditorScroll);
@@ -1133,8 +1138,13 @@ export default function AnnotatedPreview() {
     const handlePreviewScroll = () => {
       if (isScrollingFromEditorRef.current) return;
 
+      // 現在の世代を捕捉
+      const gen = syncGenerationRef.current;
+
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
+        // 世代が変わっていたら（エディタ側からの新しい同期が発生した）スキップ
+        if (gen !== syncGenerationRef.current) return;
         if (isScrollingFromEditorRef.current) return;
 
         const contentEl = contentRef.current;
@@ -1155,14 +1165,14 @@ export default function AnnotatedPreview() {
             triggerScrollSync(line);
             setTimeout(() => {
               isScrollingFromPreviewRef.current = false;
-            }, 200);
+            }, 80);
             break;
           }
         }
-      }, 100);
+      }, 150);
     };
 
-    scrollContainer.addEventListener('scroll', handlePreviewScroll);
+    scrollContainer.addEventListener('scroll', handlePreviewScroll, { passive: true });
     return () => {
       scrollContainer.removeEventListener('scroll', handlePreviewScroll);
       if (debounceTimer) clearTimeout(debounceTimer);

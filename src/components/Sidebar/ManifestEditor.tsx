@@ -32,8 +32,10 @@ function ManifestEditor() {
     if (ok) setSaved(true);
   };
 
-  // テンプレート一覧（カタログから）
+  // テンプレート一覧（カタログから、builtin/custom グループ分け）
   const templateNames = catalog?.templates ? Object.keys(catalog.templates) : [];
+  const builtinTemplates = templateNames.filter(t => catalog?.templates[t]?._source !== 'custom');
+  const customTemplates = templateNames.filter(t => catalog?.templates[t]?._source === 'custom');
 
   // 出力形式トグル
   const toggleOutput = (fmt: string) => {
@@ -150,11 +152,24 @@ function ManifestEditor() {
             onChange={(e) => handleChange('template', e.target.value)}
           >
             <option value="">-- 選択 --</option>
-            {templateNames.map((t) => (
-              <option key={t} value={t}>
-                {t} — {catalog?.templates[t]?.description || ''}
-              </option>
-            ))}
+            {builtinTemplates.length > 0 && (
+              <optgroup label="共通テンプレート">
+                {builtinTemplates.map((t) => (
+                  <option key={t} value={t}>
+                    {t} — {catalog?.templates[t]?.description || ''}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {customTemplates.length > 0 && (
+              <optgroup label="カスタムテンプレート">
+                {customTemplates.map((t) => (
+                  <option key={t} value={t}>
+                    {t} — {catalog?.templates[t]?.description || ''}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
           {manifestData.template && catalog?.templates[manifestData.template]?.styles && (
             <label className="me-label">

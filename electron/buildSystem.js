@@ -273,22 +273,225 @@ function runBuild(projectRoot, manifestPath, format, onProgress) {
 // ---------------------------------------------------------------------------
 
 /**
- * templates/catalog.yaml を読み込み
+ * templates/catalog.yaml + mytemp/catalog.yaml をマージして読み込み
+ * 各テンプレートに _source: 'builtin' | 'custom' を付与
  * @returns {{ success: boolean, catalog: object }}
  */
 async function readCatalog(dirPath) {
   try {
-    const catalogPath = path.join(dirPath, 'templates', 'catalog.yaml');
-    const content = await fs.readFile(catalogPath, 'utf-8');
-    const data = yaml.load(content);
-    // catalog.yaml のトップレベルがそのままテンプレート定義の場合、
-    // { templates: { ... } } 形式に正規化する
-    if (data && !data.templates) {
-      return { success: true, catalog: { templates: data } };
+    // --- 共通テンプレート (builtin) ---
+    const builtinPath = path.join(dirPath, 'templates', 'catalog.yaml');
+    const builtinContent = await fs.readFile(builtinPath, 'utf-8');
+    let builtinData = yaml.load(builtinContent);
+    if (builtinData && !builtinData.templates) {
+      builtinData = { templates: builtinData };
     }
-    return { success: true, catalog: data };
+
+    // builtin テンプレートに _source を付与
+    const merged = {};
+    if (builtinData && builtinData.templates) {
+      for (const [name, tmpl] of Object.entries(builtinData.templates)) {
+        merged[name] = { ...tmpl, _source: 'builtin' };
+      }
+    }
+
+    // --- カスタムテンプレート (custom) ---
+    const customPath = path.join(dirPath, 'mytemp', 'catalog.yaml');
+    if (await exists(customPath)) {
+      const customContent = await fs.readFile(customPath, 'utf-8');
+      let customData = yaml.load(customContent);
+      if (customData && !customData.templates) {
+        customData = { templates: customData };
+      }
+      if (customData && customData.templates) {
+        for (const [name, tmpl] of Object.entries(customData.templates)) {
+          merged[name] = { ...tmpl, _source: 'custom' };
+        }
+      }
+    }
+
+    const catalog = {
+      templates: merged,
+      common_params: builtinData?.common_params || {},
+    };
+
+    return { success: true, catalog };
   } catch (error) {
     return { success: false, catalog: null, error: error.message };
+  }
+}
+
+/**
+ * mytemp ディレクトリを初期化
+ */
+async function initMytemp(dirPath) {
+  try {
+    const mytempDir = path.join(dirPath, 'mytemp');
+    await fs.mkdir(mytempDir, { recursive: true });
+    await fs.mkdir(path.join(mytempDir, 'latex'), { recursive: true });
+    await fs.mkdir(path.join(mytempDir, 'docx'), { recursive: true });
+    await fs.mkdir(path.join(mytempDir, 'previews'), { recursive: true });
+
+    const catalogPath = path.join(mytempDir, 'catalog.yaml');
+    if (!(await exists(catalogPath))) {
+      await fs.writeFile(catalogPath, '# Custom Templates\n', 'utf-8');
+    }
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * 既存テンプレートをベースにカスタムテンプレートを作成
+ * @param {string} dirPath - プロジェクトルート
+ * @param {string} name - 新テンプレート名
+ * @param {string} baseTemplate - コピー元テンプレート名 (省略時は空テンプレート)
+ */
+async function createCustomTemplate(dirPath, name, baseTemplate) {
+  try {
+    // mytemp 初期化
+    await initMytemp(dirPath);
+
+    const mytempDir = path.join(dirPath, 'mytemp');
+    const catalogPath = path.join(mytempDir, 'catalog.yaml');
+
+    // 既存カスタムカタログ読み込み
+    let customTemplates = {};
+    try {
+      const content = await fs.readFile(catalogPath, 'utf-8');
+      const data = yaml.load(content);
+      if (data && typeof data === 'object') {
+        customTemplates = data.templates || data;
+        if (customTemplates.templates) customTemplates = customTemplates.templates;
+      }
+    } catch {
+      // 空ファイルまたはパースエラー
+    }
+
+    // 重複チェック
+    if (customTemplates[name]) {
+      return { success: false, error: `テンプレート "${name}" は既に存在します` };
+    }
+
+    // ベーステンプレート情報を取得
+    let newEntry = {
+      description: `${name} (カスタム)`,
+      type: 'report',
+      features: [],
+      bundle: {},
+    };
+
+    if (baseTemplate) {
+      // 共通カタログからベースを読む
+      const builtinCatalogPath = path.join(dirPath, 'templates', 'catalog.yaml');
+      const builtinContent = await fs.readFile(builtinCatalogPath, 'utf-8');
+      let builtinData = yaml.load(builtinContent);
+      if (builtinData && !builtinData.templates) {
+        builtinData = { templates: builtinData };
+      }
+      const baseTmpl = builtinData?.templates?.[baseTemplate] || customTemplates[baseTemplate];
+
+      if (baseTmpl) {
+        newEntry = {
+          description: `${baseTmpl.description || baseTemplate} (カスタムコピー)`,
+          type: baseTmpl.type || 'report',
+          features: baseTmpl.features ? [...baseTmpl.features] : [],
+          styles: baseTmpl.styles ? [...baseTmpl.styles] : undefined,
+          bundle: {},
+        };
+
+        // バンドルファイルのコピー
+        if (baseTmpl.bundle) {
+          const newBundle = {};
+          for (const [engine, formats] of Object.entries(baseTmpl.bundle)) {
+            newBundle[engine] = {};
+            for (const [fmt, srcRelPath] of Object.entries(formats)) {
+              // コピー元パスを解決（builtin は templates/ 下、custom は mytemp/ 下）
+              const isCustomBase = customTemplates[baseTemplate] !== undefined;
+              const srcBase = isCustomBase
+                ? path.join(dirPath, 'mytemp')
+                : path.join(dirPath, 'templates');
+              const srcFullPath = path.join(srcBase, srcRelPath);
+
+              // コピー先パスを決定
+              const ext = path.extname(srcRelPath);
+              const destRelPath = `${fmt}/${name}${ext}`;
+              const destFullPath = path.join(mytempDir, destRelPath);
+
+              // ディレクトリ確保してコピー
+              await fs.mkdir(path.dirname(destFullPath), { recursive: true });
+              try {
+                await fs.copyFile(srcFullPath, destFullPath);
+              } catch {
+                // コピー元が存在しない場合はスキップ
+              }
+
+              newBundle[engine][fmt] = destRelPath;
+            }
+          }
+          newEntry.bundle = newBundle;
+        }
+      }
+    }
+
+    // カタログに追加
+    customTemplates[name] = newEntry;
+    const yamlContent = yaml.dump(customTemplates, { lineWidth: -1, noRefs: true });
+    await fs.writeFile(catalogPath, yamlContent, 'utf-8');
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * カスタムテンプレートを削除
+ * @param {string} dirPath - プロジェクトルート
+ * @param {string} name - 削除対象テンプレート名
+ */
+async function deleteCustomTemplate(dirPath, name) {
+  try {
+    const mytempDir = path.join(dirPath, 'mytemp');
+    const catalogPath = path.join(mytempDir, 'catalog.yaml');
+
+    if (!(await exists(catalogPath))) {
+      return { success: false, error: 'カスタムカタログが存在しません' };
+    }
+
+    const content = await fs.readFile(catalogPath, 'utf-8');
+    let data = yaml.load(content);
+    if (!data || typeof data !== 'object') {
+      return { success: false, error: 'カタログが空です' };
+    }
+
+    // templates ラッパーの有無を判定
+    const templates = data.templates || data;
+    if (!templates[name]) {
+      return { success: false, error: `テンプレート "${name}" が見つかりません` };
+    }
+
+    // バンドルファイルを削除
+    const tmpl = templates[name];
+    if (tmpl.bundle) {
+      for (const formats of Object.values(tmpl.bundle)) {
+        for (const relPath of Object.values(formats)) {
+          const fullPath = path.join(mytempDir, relPath);
+          try { await fs.unlink(fullPath); } catch { /* ファイルが無ければスキップ */ }
+        }
+      }
+    }
+
+    // カタログからエントリ削除
+    delete templates[name];
+    const yamlContent = yaml.dump(templates, { lineWidth: -1, noRefs: true });
+    await fs.writeFile(catalogPath, yamlContent, 'utf-8');
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
   }
 }
 
@@ -397,4 +600,7 @@ module.exports = {
   readCatalog,
   listSourceFiles,
   listBibFiles,
+  initMytemp,
+  createCustomTemplate,
+  deleteCustomTemplate,
 };

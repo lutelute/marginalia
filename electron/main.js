@@ -405,6 +405,21 @@ ipcMain.handle('build:list-source-files', async (event, dirPath) => {
   return await buildSystem.listSourceFiles(dirPath);
 });
 
+// mytemp 初期化
+ipcMain.handle('build:init-mytemp', async (event, dirPath) => {
+  return await buildSystem.initMytemp(dirPath);
+});
+
+// カスタムテンプレート作成
+ipcMain.handle('build:create-custom-template', async (event, dirPath, name, baseTemplate) => {
+  return await buildSystem.createCustomTemplate(dirPath, name, baseTemplate);
+});
+
+// カスタムテンプレート削除
+ipcMain.handle('build:delete-custom-template', async (event, dirPath, name) => {
+  return await buildSystem.deleteCustomTemplate(dirPath, name);
+});
+
 // ファイルをBase64として読み込み（PDF等バイナリ用）
 ipcMain.handle('fs:readFileAsBase64', async (event, filePath) => {
   const fs = require('fs').promises;

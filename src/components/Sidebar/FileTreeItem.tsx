@@ -90,7 +90,7 @@ function FileTreeItem({ item, depth }) {
   return (
     <li className="file-tree-item">
       <div
-        className={`file-tree-item-row ${isActive ? 'active' : ''} ${isHidden ? 'file-tree-item-hidden' : ''} ${!item.isDirectory && !isMarkdown ? 'file-tree-item-secondary' : ''}`}
+        className={`file-tree-item-row ${isActive ? 'active' : ''} ${isHidden ? 'file-tree-item-hidden' : ''} ${!item.isDirectory && !isMarkdown ? 'file-tree-item-secondary' : ''} ${item.isSystem ? 'file-tree-item-system' : ''}`}
         style={{ paddingLeft }}
         onClick={isRenaming ? undefined : handleClick}
         onContextMenu={handleContextMenu}
@@ -124,6 +124,9 @@ function FileTreeItem({ item, depth }) {
         ) : (
           <>
             <span className="file-tree-item-name">{item.name}</span>
+            {item.isSystem && (
+              <span className="system-badge" title="システムファイル">SYS</span>
+            )}
             {!item.isDirectory && item.annotationCount > 0 && (
               <span className="annotation-badge" title={`${item.annotationCount}件の注釈`}>
                 {item.annotationCount}
@@ -189,6 +192,10 @@ function FileTreeItem({ item, depth }) {
           color: var(--text-secondary);
         }
 
+        .file-tree-item-system .file-tree-item-name {
+          color: var(--text-muted);
+        }
+
         .chevron {
           display: flex;
           align-items: center;
@@ -228,6 +235,21 @@ function FileTreeItem({ item, depth }) {
           text-overflow: ellipsis;
           flex: 1;
           min-width: 0;
+        }
+
+        .system-badge {
+          flex-shrink: 0;
+          margin-left: 6px;
+          padding: 0 4px;
+          height: 14px;
+          line-height: 14px;
+          font-size: 8px;
+          font-weight: 700;
+          text-align: center;
+          border-radius: 3px;
+          background-color: rgba(107, 114, 128, 0.2);
+          color: #9ca3af;
+          letter-spacing: 0.3px;
         }
 
         .annotation-badge {

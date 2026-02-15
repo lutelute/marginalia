@@ -76,6 +76,7 @@ export interface FileTreeNode {
   path: string;
   type: 'file' | 'directory';
   isHidden?: boolean;
+  isSystem?: boolean;
   children?: FileTreeNode[];
 }
 
@@ -206,6 +207,9 @@ export interface ElectronAPI {
   onTriggerBuild: (callback: () => void) => () => void;
   readCatalog: (dirPath: string) => Promise<{ success: boolean; catalog: CatalogData | null; error?: string }>;
   listSourceFiles: (dirPath: string) => Promise<{ success: boolean; files: string[]; error?: string }>;
+  initMytemp: (dirPath: string) => Promise<{ success: boolean; error?: string }>;
+  createCustomTemplate: (dirPath: string, name: string, baseTemplate?: string) => Promise<{ success: boolean; error?: string }>;
+  deleteCustomTemplate: (dirPath: string, name: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 // Build System Types
@@ -243,6 +247,7 @@ export interface CatalogData {
     features?: string[];
     preview?: string;
     bundle?: TemplateBundleInfo;
+    _source?: 'builtin' | 'custom';
   }>;
   common_params?: Record<string, unknown>;
 }

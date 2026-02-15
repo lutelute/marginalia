@@ -12,6 +12,10 @@ const HIDDEN_EXTENSIONS = ['.mrgl', '.bak', '.DS_Store'];
 const HIDDEN_DIRS = ['node_modules', '.git', '.marginalia', '__pycache__', '.venv', 'venv'];
 const MAX_BACKUPS = 20; // 保持するバックアップの最大数
 
+// ビルドシステムのインフラファイル/ディレクトリ（ユーザーコンテンツではないもの）
+const SYSTEM_DIRS = ['templates', 'output', '.venv', 'venv', '__pycache__'];
+const SYSTEM_FILES = ['build', 'requirements.txt', 'Makefile', 'setup.py', 'setup.cfg', 'pyproject.toml'];
+
 // ---------------------------------------------------------------------------
 // ディレクトリ読み込み
 // ---------------------------------------------------------------------------
@@ -21,12 +25,15 @@ const MAX_BACKUPS = 20; // 保持するバックアップの最大数
  * 各ファイルに annotationCount（注釈件数）を付与
  */
 async function readDirectory(dirPath, relativePath = '', options = {}) {
-  const { showHidden = false } = options;
+  const { showHidden = false, systemDirs = null } = options;
   const entries = await fs.readdir(dirPath, { withFileTypes: true });
   const result = [];
 
   // このディレクトリの .marginalia/ から注釈件数マップを構築
   const annotationCounts = await scanAnnotationCounts(dirPath);
+
+  // ルートレベルかどうかを判定（相対パスが空 = ルート直下）
+  const isRootLevel = relativePath === '';
 
   for (const entry of entries) {
     if (!showHidden && entry.name.startsWith('.')) continue;
@@ -38,11 +45,17 @@ async function readDirectory(dirPath, relativePath = '', options = {}) {
     if (entry.isDirectory()) {
       const children = await readDirectory(fullPath, itemRelativePath, options);
       if (children.length > 0) {
+        // ルート直下のシステムディレクトリを判定
+        const isSystem = isRootLevel && (
+          SYSTEM_DIRS.includes(entry.name) ||
+          (systemDirs && systemDirs.includes(entry.name))
+        );
         result.push({
           name: entry.name,
           path: fullPath,
           relativePath: itemRelativePath,
           isDirectory: true,
+          isSystem: isSystem || false,
           children,
         });
       }
@@ -51,11 +64,14 @@ async function readDirectory(dirPath, relativePath = '', options = {}) {
       if (HIDDEN_EXTENSIONS.includes(ext)) continue;
 
       const isMarkdown = MARKDOWN_EXTENSIONS.includes(ext);
+      // ルート直下のシステムファイルを判定
+      const isSystem = isRootLevel && SYSTEM_FILES.includes(entry.name);
       const item = {
         name: entry.name,
         path: fullPath,
         relativePath: itemRelativePath,
         isDirectory: false,
+        isSystem: isSystem || false,
         extension: ext,
       };
 

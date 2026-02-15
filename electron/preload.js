@@ -78,6 +78,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listManifests: (dirPath) => ipcRenderer.invoke('build:list-manifests', dirPath),
   readCatalog: (dirPath) => ipcRenderer.invoke('build:read-catalog', dirPath),
   listSourceFiles: (dirPath) => ipcRenderer.invoke('build:list-source-files', dirPath),
+  initMytemp: (dirPath) => ipcRenderer.invoke('build:init-mytemp', dirPath),
+  createCustomTemplate: (dirPath, name, baseTemplate) => ipcRenderer.invoke('build:create-custom-template', dirPath, name, baseTemplate),
+  deleteCustomTemplate: (dirPath, name) => ipcRenderer.invoke('build:delete-custom-template', dirPath, name),
 
   // ファイルをBase64として読み込み（PDF等バイナリ用）
   readFileAsBase64: (filePath) => ipcRenderer.invoke('fs:readFileAsBase64', filePath),

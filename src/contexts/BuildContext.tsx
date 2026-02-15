@@ -51,6 +51,8 @@ interface BuildContextValue extends BuildState {
   saveManifest: (path: string, data: ManifestData) => Promise<boolean>;
   clearManifest: () => void;
   refreshFromDisk: () => void;
+  createCustomTemplate: (name: string, baseTemplate?: string) => Promise<{ success: boolean; error?: string }>;
+  deleteCustomTemplate: (name: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -230,6 +232,24 @@ export function BuildProvider({ children, rootPath }: { children: React.ReactNod
     }
   }, [state.projectDir, loadProjectData]);
 
+  const createCustomTemplate = useCallback(async (name: string, baseTemplate?: string) => {
+    if (!state.projectDir) return { success: false, error: 'プロジェクトが未検出です' };
+    const result = await window.electronAPI.createCustomTemplate(state.projectDir, name, baseTemplate);
+    if (result.success) {
+      await loadProjectData(state.projectDir);
+    }
+    return result;
+  }, [state.projectDir, loadProjectData]);
+
+  const deleteCustomTemplate = useCallback(async (name: string) => {
+    if (!state.projectDir) return { success: false, error: 'プロジェクトが未検出です' };
+    const result = await window.electronAPI.deleteCustomTemplate(state.projectDir, name);
+    if (result.success) {
+      await loadProjectData(state.projectDir);
+    }
+    return result;
+  }, [state.projectDir, loadProjectData]);
+
   const runBuild = useCallback(async (manifestPath: string, format: string) => {
     if (!state.projectDir) return;
 
@@ -308,6 +328,8 @@ export function BuildProvider({ children, rootPath }: { children: React.ReactNod
     saveManifest,
     clearManifest,
     refreshFromDisk,
+    createCustomTemplate,
+    deleteCustomTemplate,
   };
 
   return <BuildContext.Provider value={value}>{children}</BuildContext.Provider>;
