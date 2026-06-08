@@ -136,9 +136,38 @@ async function scanAnnotationCounts(dirPath) {
 // ファイル読み書き
 // ---------------------------------------------------------------------------
 
+/**
+ * パスを NFC に正規化（macOS の NFD ファイル名問題対策）
+ * APFS は正規化非依存の検索を行うため、NFC に統一しても既存ファイルを参照できる
+ */
+function nfc(p) {
+  return typeof p === 'string' ? p.normalize('NFC') : p;
+}
+
+/**
+ * アトミック書き込み: 一時ファイルに書いてから rename する。
+ * 書き込み途中のクラッシュ・ディスク満杯でも元ファイルが破損しない。
+ */
+async function writeFileAtomic(filePath, content) {
+  const target = nfc(filePath);
+  const dir = path.dirname(target);
+  const tmpPath = path.join(
+    dir,
+    `.${path.basename(target)}.tmp-${process.pid}-${Date.now()}`
+  );
+  try {
+    await fs.writeFile(tmpPath, content, 'utf-8');
+    await fs.rename(tmpPath, target);
+  } catch (error) {
+    // 失敗時は一時ファイルを掃除してから再スロー
+    try { await fs.unlink(tmpPath); } catch { /* ignore */ }
+    throw error;
+  }
+}
+
 async function readFile(filePath) {
   try {
-    const content = await fs.readFile(filePath, 'utf-8');
+    const content = await fs.readFile(nfc(filePath), 'utf-8');
     return { success: true, content };
   } catch (error) {
     return { success: false, error: error.message };
@@ -151,7 +180,7 @@ async function writeFile(filePath, content) {
     if (fileExists) {
       await createBackup(filePath);
     }
-    await fs.writeFile(filePath, content, 'utf-8');
+    await writeFileAtomic(filePath, content);
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -271,7 +300,7 @@ async function createBackup(filePath) {
       content: content,
     };
 
-    await fs.writeFile(backupPath, JSON.stringify(backupData, null, 2), 'utf-8');
+    await writeFileAtomic(backupPath, JSON.stringify(backupData, null, 2));
     await cleanupOldBackups(filePath);
 
     return { success: true, backupPath };
@@ -362,7 +391,7 @@ async function restoreBackup(backupPath, targetPath) {
       await createBackup(targetPath);
     }
 
-    await fs.writeFile(targetPath, data.content, 'utf-8');
+    await writeFileAtomic(targetPath, data.content);
     return { success: true, content: data.content };
   } catch (error) {
     return { success: false, error: error.message };
@@ -452,7 +481,7 @@ async function writeMarginalia(filePath, data) {
     }
 
     const content = JSON.stringify(data, null, 2);
-    await fs.writeFile(marginaliaPath, content, 'utf-8');
+    await writeFileAtomic(marginaliaPath, content);
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -491,7 +520,7 @@ async function createMarginaliaBackup(marginaliaPath, originalFilePath) {
       data: existingData,
     };
 
-    await fs.writeFile(backupPath, JSON.stringify(backupData, null, 2), 'utf-8');
+    await writeFileAtomic(backupPath, JSON.stringify(backupData, null, 2));
     await cleanupOldMarginaliaBackups(backupDir, stem);
 
     return { success: true, backupPath };
@@ -583,7 +612,7 @@ async function restoreMarginaliaBackup(backupPath, filePath) {
     }
 
     await fs.mkdir(marginaliaDir, { recursive: true });
-    await fs.writeFile(marginaliaPath, JSON.stringify(backupData.data, null, 2), 'utf-8');
+    await writeFileAtomic(marginaliaPath, JSON.stringify(backupData.data, null, 2));
 
     return { success: true, data: backupData.data };
   } catch (error) {
@@ -634,7 +663,7 @@ async function moveFile(oldPath, newPath) {
         data.filePath = newPath;
         data.fileName = path.basename(newPath);
         delete data.fileId; // 旧形式のhash IDを削除
-        await fs.writeFile(newMrgl, JSON.stringify(data, null, 2), 'utf-8');
+        await writeFileAtomic(newMrgl, JSON.stringify(data, null, 2));
       } catch (e) {
         console.error('Failed to update .mrgl metadata:', e);
       }
@@ -700,7 +729,7 @@ async function renameFile(filePath, newName) {
         data.filePath = newPath;
         data.fileName = newName;
         delete data.fileId;
-        await fs.writeFile(newMrgl, JSON.stringify(data, null, 2), 'utf-8');
+        await writeFileAtomic(newMrgl, JSON.stringify(data, null, 2));
       } catch (e) {
         console.error('Failed to update .mrgl metadata:', e);
       }

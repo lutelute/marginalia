@@ -7,7 +7,37 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const { app, shell } = require('electron');
-const { execSync } = require('child_process');
+const { spawnSync } = require('child_process');
+
+/**
+ * コマンドを引数配列で安全に実行（シェル解釈なし）
+ * @returns {string} stdout
+ * @throws 実行失敗時
+ */
+function run(cmd, args) {
+  const result = spawnSync(cmd, args, { encoding: 'utf8' });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`${cmd} failed (exit ${result.status}): ${result.stderr || ''}`);
+  }
+  return result.stdout || '';
+}
+
+/** ダウンロード元として信頼する HTTPS ホスト */
+function isTrustedDownloadUrl(url) {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== 'https:') return false;
+    return (
+      u.hostname === 'github.com' ||
+      u.hostname === 'api.github.com' ||
+      u.hostname === 'objects.githubusercontent.com' ||
+      u.hostname.endsWith('.githubusercontent.com')
+    );
+  } catch {
+    return false;
+  }
+}
 
 // ダウンロード済みファイルパス
 let downloadedFilePath = null;
@@ -113,17 +143,34 @@ async function downloadUpdate(downloadUrl, onProgress) {
       return;
     }
 
+    // GitHub 配信ドメインの HTTPS のみ許可
+    if (!isTrustedDownloadUrl(downloadUrl)) {
+      resolve({ success: false, error: `信頼できないダウンロードURLです: ${downloadUrl}` });
+      return;
+    }
+
     // ダウンロード前に古いファイルをクリーンアップ
     cleanupOldFiles(0);
 
     const updatesPath = getUpdatesPath();
-    const fileName = path.basename(new URL(downloadUrl).pathname);
+    // ファイル名はベース名のみ採用し、英数・ドット・ハイフン以外を除去（パス・シェル特殊文字対策）
+    const rawName = path.basename(new URL(downloadUrl).pathname);
+    const fileName = rawName.replace(/[^a-zA-Z0-9._-]/g, '_');
+    if (!fileName.endsWith('.dmg')) {
+      resolve({ success: false, error: `想定外のファイル形式です: ${rawName}` });
+      return;
+    }
     const filePath = path.join(updatesPath, fileName);
 
-    // リダイレクトを追跡するための再帰関数
-    const download = (url) => {
+    // リダイレクトを追跡するための再帰関数（回数制限つき・HTTPSのみ）
+    const MAX_REDIRECTS = 5;
+    const download = (url, redirectCount = 0) => {
+      if (!isTrustedDownloadUrl(url)) {
+        resolve({ success: false, error: `信頼できないリダイレクト先です: ${url}` });
+        return;
+      }
       const urlObj = new URL(url);
-      const protocol = urlObj.protocol === 'https:' ? https : require('http');
+      const protocol = https;
 
       const options = {
         hostname: urlObj.hostname,
@@ -139,7 +186,11 @@ async function downloadUpdate(downloadUrl, onProgress) {
         if (res.statusCode === 301 || res.statusCode === 302) {
           const redirectUrl = res.headers.location;
           if (redirectUrl) {
-            download(redirectUrl);
+            if (redirectCount >= MAX_REDIRECTS) {
+              resolve({ success: false, error: 'リダイレクト回数が上限を超えました' });
+              return;
+            }
+            download(redirectUrl, redirectCount + 1);
             return;
           }
         }
@@ -203,11 +254,9 @@ async function installUpdate() {
     let mountPoint = null;
 
     try {
-      // 1. DMGをマウント
+      // 1. DMGをマウント（引数配列渡し: シェル解釈なし）
       console.log('Mounting DMG:', downloadedFilePath);
-      const mountOutput = execSync(`hdiutil attach "${downloadedFilePath}" -nobrowse -readonly`, {
-        encoding: 'utf8',
-      });
+      const mountOutput = run('hdiutil', ['attach', downloadedFilePath, '-nobrowse', '-readonly']);
 
       // マウントポイントを抽出 (/Volumes/xxx)
       const mountMatch = mountOutput.match(/\/Volumes\/[^\n\r]+/);
@@ -218,28 +267,30 @@ async function installUpdate() {
       mountPoint = mountMatch[0].trim();
       console.log('Mounted at:', mountPoint);
 
-      // 2. .appファイルを探す
+      // 2. .appファイルを探す（名前を厳格に検証: パス区切りを含まない単純名のみ）
       const files = fs.readdirSync(mountPoint);
-      const appFile = files.find((f) => f.endsWith('.app'));
+      const appFile = files.find((f) => f.endsWith('.app') && !f.includes('/') && !f.includes('..'));
       if (!appFile) {
-        execSync(`hdiutil detach "${mountPoint}" -quiet`);
+        run('hdiutil', ['detach', mountPoint, '-quiet']);
         resolve({ success: false, error: 'アプリケーションが見つかりません' });
         return;
       }
 
       const sourceApp = path.join(mountPoint, appFile);
-      const destApp = `/Applications/${appFile}`;
+      const destApp = path.join('/Applications', appFile);
       console.log('Copying:', sourceApp, '->', destApp);
 
       // 3. 既存のアプリを削除して新しいアプリをコピー
-      if (fs.existsSync(destApp)) {
-        execSync(`rm -rf "${destApp}"`);
+      // 削除対象は /Applications 直下の .app に限定する
+      if (path.dirname(destApp) === '/Applications' && destApp.endsWith('.app') && fs.existsSync(destApp)) {
+        fs.rmSync(destApp, { recursive: true, force: true });
       }
-      execSync(`cp -R "${sourceApp}" "${destApp}"`);
+      // cp -R はシンボリックリンクや拡張属性を保持するため .app バンドルに適する
+      run('cp', ['-R', sourceApp, destApp]);
 
       // 4. DMGをアンマウント
       console.log('Unmounting DMG...');
-      execSync(`hdiutil detach "${mountPoint}" -quiet`);
+      run('hdiutil', ['detach', mountPoint, '-quiet']);
 
       // 5. ダウンロードファイルを削除
       cleanupDownload();
@@ -251,7 +302,7 @@ async function installUpdate() {
       // エラー時もアンマウントを試みる
       if (mountPoint) {
         try {
-          execSync(`hdiutil detach "${mountPoint}" -quiet -force`);
+          run('hdiutil', ['detach', mountPoint, '-quiet', '-force']);
         } catch (e) {
           // 無視
         }

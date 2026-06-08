@@ -32,6 +32,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exists: (filePath) => ipcRenderer.invoke('fs:exists', filePath),
   getFileStats: (filePath) => ipcRenderer.invoke('fs:getFileStats', filePath),
 
+  // 開いているファイルの外部変更監視
+  watchFile: (filePath) => ipcRenderer.invoke('fs:watchFile', filePath),
+  unwatchFile: () => ipcRenderer.invoke('fs:unwatchFile'),
+  onFileChangedExternally: (callback) => {
+    const listener = (event, filePath) => callback(filePath);
+    ipcRenderer.on('file-changed-externally', listener);
+    return () => ipcRenderer.removeListener('file-changed-externally', listener);
+  },
+
   // アップデート操作
   checkForUpdates: () => ipcRenderer.invoke('update:check'),
   downloadUpdate: (downloadUrl) => ipcRenderer.invoke('update:download', downloadUrl),

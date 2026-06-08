@@ -215,8 +215,15 @@ function pythonModuleExists(moduleName) {
  * @param {function} onProgress - 進捗コールバック (optional)
  * @returns {{ success: boolean, outputPath?: string, error?: string, stdout?: string, stderr?: string }}
  */
+const ALLOWED_FORMATS = ['pdf', 'docx'];
+
 function runBuild(projectRoot, manifestPath, format, onProgress) {
   return new Promise(async (resolve) => {
+    // format はホワイトリスト検証（任意引数の注入防止）
+    if (format && !ALLOWED_FORMATS.includes(format)) {
+      resolve({ success: false, error: `不正な出力フォーマット: ${format}` });
+      return;
+    }
     const args = [path.join(projectRoot, 'build'), manifestPath];
     if (format) args.push(`--${format}`);
 

@@ -1,8 +1,10 @@
 const { app, BrowserWindow, Menu, ipcMain, dialog, shell, protocol } = require('electron');
 const path = require('path');
+const pathGuard = require('./pathGuard');
 const fileSystem = require('./fileSystem');
 const buildSystem = require('./buildSystem');
 const terminalManager = require('./terminalManager');
+const fileWatcher = require('./fileWatcher');
 const {
   checkForUpdates,
   downloadUpdate,
@@ -30,7 +32,22 @@ function createWindow() {
     backgroundColor: '#1e1e1e',
   });
 
+  // レンダラーのコンソールログをmainプロセスに転送
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    const levels = ['VERBOSE', 'INFO', 'WARNING', 'ERROR'];
+    console.log(`[Renderer ${levels[level] || level}] ${message} (${sourceId}:${line})`);
+  });
+
   if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
+    // 開発時: CSP を緩和して Vite HMR WebSocket を許可
+    mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': ["default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https: local-file: data:; connect-src 'self' ws://localhost:* http://localhost:* https://api.github.com; frame-src blob: local-file:"]
+        }
+      });
+    });
     mainWindow.loadURL('http://localhost:5190');
     mainWindow.webContents.openDevTools();
   } else {
@@ -57,11 +74,21 @@ app.whenReady().then(() => {
     const url = request.url.replace('local-file://', '');
     const filePath = decodeURIComponent(url);
     const ext = path.extname(filePath).toLowerCase();
-    const mime = mimeTypes[ext] || 'application/octet-stream';
+    const mime = mimeTypes[ext];
+
+    // 既知のメディア拡張子以外は配信しない（任意ファイル読み出し防止）
+    if (!mime) {
+      return new Response('Forbidden', { status: 403 });
+    }
+    // ワークスペース外のファイルは配信しない（パストラバーサル防止）
+    if (!pathGuard.isPathAllowed(filePath)) {
+      console.warn('[local-file] blocked path outside workspace:', filePath);
+      return new Response('Forbidden', { status: 403 });
+    }
 
     try {
       const fs = require('fs');
-      const data = fs.readFileSync(filePath);
+      const data = fs.readFileSync(pathGuard.canonicalize(filePath));
       return new Response(data, {
         headers: { 'Content-Type': mime }
       });
@@ -189,6 +216,7 @@ app.on('window-all-closed', () => {
 // アプリ終了時にすべてのターミナルセッションを破棄
 app.on('will-quit', () => {
   terminalManager.destroyAll();
+  fileWatcher.closeWatcher();
 });
 
 // IPC Handlers
@@ -199,16 +227,23 @@ ipcMain.handle('dialog:openDirectory', async () => {
     properties: ['openDirectory'],
   });
   if (result.canceled) return null;
+  pathGuard.addAllowedRoot(result.filePaths[0]);
   return result.filePaths[0];
 });
 
 // ディレクトリ読み込み
+// 「フォルダを開く」セマンティクスなので、ここでワークスペースルートとして登録する
+// （起動時の前回フォルダ復元は localStorage から直接このAPIを呼ぶため）
 ipcMain.handle('fs:readDirectory', async (event, dirPath, options) => {
+  pathGuard.addAllowedRoot(dirPath);
   return await fileSystem.readDirectory(dirPath, '', options);
 });
 
 // ファイル読み込み
+// ユーザーが開いたファイルの親ディレクトリを信頼ルートとして登録する
+// （フォルダ未オープン時のタブ復元でも同フォルダ内の画像/PDFを表示可能にする）
 ipcMain.handle('fs:readFile', async (event, filePath) => {
+  pathGuard.addAllowedFileDir(filePath);
   return await fileSystem.readFile(filePath);
 });
 
@@ -260,6 +295,26 @@ ipcMain.handle('fs:createBackup', async (event, filePath) => {
 // ファイルメタデータ取得
 ipcMain.handle('fs:getFileStats', async (event, filePath) => {
   return await fileSystem.getFileStats(filePath);
+});
+
+// 開いているファイルの外部変更監視を開始（1ファイルのみ・既存は張り替え）
+ipcMain.handle('fs:watchFile', async (event, filePath) => {
+  try {
+    // ワークスペース外のファイルは監視しない
+    pathGuard.assertPathAllowed(filePath, '監視対象ファイル');
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+  return fileWatcher.watchFile(filePath, (changedPath) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('file-changed-externally', changedPath);
+    }
+  });
+});
+
+// 外部変更監視を停止
+ipcMain.handle('fs:unwatchFile', async () => {
+  return fileWatcher.unwatchFile();
 });
 
 // 注釈バックアップ一覧取得
@@ -542,15 +597,19 @@ ipcMain.handle('build:delete-custom-template', async (event, dirPath, name) => {
 });
 
 // ファイルをBase64として読み込み（PDF等バイナリ用）
+// UI操作（PDFタブ・プレビュー）からの明示的な読み込みなので親ディレクトリを信頼登録
 ipcMain.handle('fs:readFileAsBase64', async (event, filePath) => {
+  pathGuard.addAllowedFileDir(filePath);
+  pathGuard.assertPathAllowed(filePath, 'ファイル');
   const fs = require('fs').promises;
-  const data = await fs.readFile(filePath);
+  const data = await fs.readFile(pathGuard.canonicalize(filePath));
   return data.toString('base64');
 });
 
 // ファイルを外部アプリで開く
 ipcMain.handle('shell:openPath', async (event, filePath) => {
-  return await shell.openPath(filePath);
+  pathGuard.assertPathAllowed(filePath, 'パス');
+  return await shell.openPath(pathGuard.canonicalize(filePath));
 });
 
 // ギャラリーウィンドウを開く
@@ -775,14 +834,28 @@ ipcMain.handle('build:install-sample', async (event, demoStem, targetProjectDir)
 
 // PDF ビューアウィンドウを開く
 ipcMain.handle('shell:openPdfViewer', async (event, filePath) => {
+  // PDF 以外・ワークスペース外のファイルは開かない
+  const resolved = pathGuard.canonicalize(filePath);
+  if (path.extname(resolved).toLowerCase() !== '.pdf') {
+    return { success: false, error: 'PDF ファイルのみ開けます' };
+  }
+  // UI操作による明示的なPDFオープンなので親ディレクトリを信頼登録
+  pathGuard.addAllowedFileDir(resolved);
+  pathGuard.assertPathAllowed(resolved, 'PDF');
+  if (!require('fs').existsSync(resolved)) {
+    return { success: false, error: 'ファイルが見つかりません' };
+  }
+
   const pdfWindow = new BrowserWindow({
     width: 900,
     height: 1100,
-    title: path.basename(filePath),
+    title: path.basename(resolved),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
   });
-  pdfWindow.loadFile(filePath);
+  pdfWindow.loadFile(resolved);
+  return { success: true };
 });
