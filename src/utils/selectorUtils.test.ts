@@ -7,7 +7,10 @@ import {
   anchorAnnotation,
   computeEditorPositionFromOffset,
   getAnnotationExactText,
+  rebuildSelectors,
+  isSelectorDrifted,
 } from './selectorUtils';
+import type { TextPositionSelector } from '../types/annotations';
 import type { AnnotationV2 } from '../types/annotations';
 
 const DOC = [
@@ -214,5 +217,72 @@ describe('getAnnotationExactText', () => {
       { type: 'TextQuoteSelector', exact: 'plain text' },
     ]);
     expect(getAnnotationExactText(ann)).toBe('plain text');
+  });
+});
+
+describe('rebuildSelectors（位置からのセレクタ再生成）', () => {
+  it('TextQuote / TextPosition / EditorPosition の3種を生成する', () => {
+    const start = DOC.indexOf('重要なテキスト');
+    const end = start + '重要なテキスト'.length;
+    const selectors = rebuildSelectors(DOC, start, end);
+
+    const types = selectors.map((s) => s.type).sort();
+    expect(types).toEqual([
+      'EditorPositionSelector',
+      'TextPositionSelector',
+      'TextQuoteSelector',
+    ]);
+
+    const tps = selectors.find(
+      (s): s is TextPositionSelector => s.type === 'TextPositionSelector'
+    );
+    expect(tps).toMatchObject({ start, end });
+  });
+
+  it('生成したセレクタは元の位置へ再アンカーできる', () => {
+    const start = DOC.indexOf('最初の段落');
+    const end = start + '最初の段落'.length;
+    const ann = makeAnnotation(rebuildSelectors(DOC, start, end));
+    expect(anchorAnnotation(DOC, ann)).toEqual({ start, end });
+  });
+});
+
+describe('isSelectorDrifted（位置ズレ判定）', () => {
+  it('TextPositionSelector が一致すれば false', () => {
+    const ann = makeAnnotation([{ type: 'TextPositionSelector', start: 10, end: 20 }]);
+    expect(isSelectorDrifted(ann, { start: 10, end: 20 })).toBe(false);
+  });
+
+  it('TextPositionSelector がズレていれば true', () => {
+    const ann = makeAnnotation([{ type: 'TextPositionSelector', start: 10, end: 20 }]);
+    expect(isSelectorDrifted(ann, { start: 12, end: 22 })).toBe(true);
+  });
+
+  it('TextPositionSelector を持たなければ常に true（位置補完が必要）', () => {
+    const ann = makeAnnotation([{ type: 'TextQuoteSelector', exact: 'foo' }]);
+    expect(isSelectorDrifted(ann, { start: 0, end: 3 })).toBe(true);
+  });
+});
+
+describe('自動再マッチング（テキスト移動 → 再アンカー → ドリフト解消）', () => {
+  it('前に行が挿入されても再アンカーでき、再生成後はドリフトが解消する', () => {
+    // 元ドキュメントで注釈を作成
+    const start = DOC.indexOf('最後の行');
+    const end = start + '最後の行'.length;
+    const ann = makeAnnotation(rebuildSelectors(DOC, start, end));
+
+    // ドキュメント先頭に行を挿入して位置をずらす
+    const shifted = '新しい見出し行\n\n' + DOC;
+    const anchored = anchorAnnotation(shifted, ann);
+    expect(anchored).not.toBeNull();
+
+    // ズレが検出される
+    expect(isSelectorDrifted(ann, anchored!)).toBe(true);
+
+    // 再生成したセレクタではドリフトが解消し、同じ位置に安定して再アンカーできる
+    const rebuilt = makeAnnotation(rebuildSelectors(shifted, anchored!.start, anchored!.end));
+    const reAnchored = anchorAnnotation(shifted, rebuilt);
+    expect(reAnchored).toEqual(anchored);
+    expect(isSelectorDrifted(rebuilt, reAnchored!)).toBe(false);
   });
 });

@@ -320,3 +320,47 @@ export function computeEditorPositionFromOffset(
 
   return { startLine, endLine, startChar, endChar };
 }
+
+/**
+ * ドキュメント上のオフセット範囲から3種セレクタ（TextQuote/TextPosition/
+ * EditorPosition）を再生成する。
+ *
+ * 自動再マッチング用: アンカー結果の最新位置でセレクタを作り直し、
+ * テキストの移動・編集による位置情報のズレを解消する。
+ */
+export function rebuildSelectors(
+  docText: string,
+  start: number,
+  end: number
+): AnnotationSelector[] {
+  const { startLine, endLine, startChar, endChar } = computeEditorPositionFromOffset(
+    docText,
+    start,
+    end
+  );
+  return createSelectorsFromEditorSelection(
+    docText,
+    start,
+    end,
+    startLine,
+    endLine,
+    startChar,
+    endChar
+  );
+}
+
+/**
+ * 注釈の現在の TextPositionSelector が指す位置が、再アンカー結果からズレて
+ * いるか（再マッチングが必要か）を判定する。
+ * TextPositionSelector を持たない注釈は常にズレ扱い（位置情報を補完するため）。
+ */
+export function isSelectorDrifted(
+  annotation: AnnotationV2,
+  anchored: { start: number; end: number }
+): boolean {
+  const tps = annotation.target.selectors.find(
+    (s): s is TextPositionSelector => s.type === 'TextPositionSelector'
+  );
+  if (!tps) return true;
+  return tps.start !== anchored.start || tps.end !== anchored.end;
+}

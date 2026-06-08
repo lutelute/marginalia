@@ -12,10 +12,14 @@ import {
   MarginaliaFileV1,
   MarginaliaFileV2,
   PendingSelectionV2,
-  TextQuoteSelector,
 } from '../types/annotations';
-import { migrateFile, needsMigration as checkNeedsMigration } from '../utils/migration';
-import { anchorAnnotation, getAnnotationExactText, createAnnotationTarget } from '../utils/selectorUtils';
+import { migrateFile } from '../utils/migration';
+import {
+  anchorAnnotation,
+  getAnnotationExactText,
+  rebuildSelectors,
+  isSelectorDrifted,
+} from '../utils/selectorUtils';
 
 // --- State ---
 
@@ -527,13 +531,15 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
     [state.documentText, content]
   );
 
-  // 孤立注釈を検出
+  // 孤立注釈を検出し、再びテキストが見つかったものは位置を自動再マッチング
   const detectOrphanedAnnotations = useCallback(
     (documentText: string) => {
       if (!documentText || state.annotations.length === 0) return [];
 
       const orphaned: string[] = [];
-      const reactivated: string[] = [];
+      // 再アンカーに成功し、かつ位置がズレている注釈はセレクタを作り直す
+      // （orphaned からの復帰・編集による位置ドリフトの両方をこれで吸収する）
+      const rematched: { id: string; newSelectors: AnnotationSelector[] }[] = [];
 
       state.annotations.forEach((annotation) => {
         // kept/resolved/archivedはスキップ
@@ -551,9 +557,14 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
             orphaned.push(annotation.id);
           }
         } else {
-          // アンカー成功 → orphanedから復帰
-          if (annotation.status === 'orphaned') {
-            reactivated.push(annotation.id);
+          // アンカー成功 → 位置が変わっていれば（または orphaned からの復帰なら）
+          // 最新位置でセレクタを再生成して追従させる
+          const wasOrphaned = annotation.status === 'orphaned';
+          if (wasOrphaned || isSelectorDrifted(annotation, result)) {
+            rematched.push({
+              id: annotation.id,
+              newSelectors: rebuildSelectors(documentText, result.start, result.end),
+            });
           }
         }
       });
@@ -565,11 +576,9 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
         });
       }
 
-      if (reactivated.length > 0) {
-        dispatch({
-          type: 'BULK_UPDATE_STATUS',
-          payload: { ids: reactivated, status: 'active' },
-        });
+      // 再マッチング: 各注釈のセレクタを最新位置で更新し status を active に戻す
+      for (const { id, newSelectors } of rematched) {
+        dispatch({ type: 'REASSIGN_ANNOTATION', payload: { id, newSelectors } });
       }
 
       return orphaned;
