@@ -33,9 +33,10 @@ function createWindow() {
   });
 
   // レンダラーのコンソールログをmainプロセスに転送
-  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
-    const levels = ['VERBOSE', 'INFO', 'WARNING', 'ERROR'];
-    console.log(`[Renderer ${levels[level] || level}] ${message} (${sourceId}:${line})`);
+  // Electron 32+ の新シグネチャ（event オブジェクトに level/message 等が含まれる）
+  mainWindow.webContents.on('console-message', (event) => {
+    const { level, message, lineNumber, sourceId } = event;
+    console.log(`[Renderer ${String(level).toUpperCase()}] ${message} (${sourceId}:${lineNumber})`);
   });
 
   if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
