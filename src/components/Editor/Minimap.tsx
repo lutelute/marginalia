@@ -58,10 +58,12 @@ function Minimap({
       const editorPos = getEditorPosition(annotation);
       const line = editorPos?.startLine ?? 0;
       if (line === 0) continue;
-      if (!map.has(line)) {
-        map.set(line, []);
+      let entries = map.get(line);
+      if (!entries) {
+        entries = [];
+        map.set(line, entries);
       }
-      map.get(line)!.push(annotation);
+      entries.push(annotation);
     }
 
     return map;

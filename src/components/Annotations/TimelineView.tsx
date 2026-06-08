@@ -112,14 +112,16 @@ function TimelineView() {
 
     items.forEach((item) => {
       const dateKey = getDateKey(item.timestamp);
-      if (!groups.has(dateKey)) {
-        groups.set(dateKey, {
+      let group = groups.get(dateKey);
+      if (!group) {
+        group = {
           date: dateKey,
           displayDate: getDisplayDate(item.timestamp),
           items: [],
-        });
+        };
+        groups.set(dateKey, group);
       }
-      groups.get(dateKey)!.items.push(item);
+      group.items.push(item);
     });
 
     return Array.from(groups.values());

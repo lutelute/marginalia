@@ -62,7 +62,7 @@ function SampleExplorer({ defaultTemplateMap, defaultDemoData, quickBuildDemo, i
           <div className="se-empty">No samples available</div>
         ) : (
           templateNames.map(tmplName => {
-            const stems = defaultTemplateMap![tmplName] || [];
+            const stems = defaultTemplateMap?.[tmplName] || [];
             const isExpanded = expandedTemplates.has(tmplName);
             return (
               <div key={tmplName} className="se-template-group">

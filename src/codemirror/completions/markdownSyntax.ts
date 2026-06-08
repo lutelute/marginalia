@@ -44,8 +44,8 @@ export function markdownSyntaxCompletion(context: CompletionContext): Completion
   return {
     from: word.from,
     options: MARKDOWN_COMPLETIONS.filter(c =>
-      c.label.toLowerCase().includes(word!.text.toLowerCase()) ||
-      c.apply.startsWith(word!.text)
+      c.label.toLowerCase().includes(word.text.toLowerCase()) ||
+      c.apply.startsWith(word.text)
     ),
   };
 }

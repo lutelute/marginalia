@@ -52,7 +52,7 @@ function TemplateGallery({ onApplyTemplate, onPopOut, onClose, isModal, isWindow
     if (projectDir && stem) {
       const manifestPath = `${projectDir}/projects/${stem}.yaml`;
       try {
-        const yamlResult = await window.electronAPI!.readFile(manifestPath);
+        const yamlResult = await window.electronAPI.readFile(manifestPath);
         const yamlText = yamlResult.content ?? '';
         setPreviewYaml(yamlText);
 
@@ -65,7 +65,7 @@ function TemplateGallery({ onApplyTemplate, onPopOut, onClose, isModal, isWindow
           for (const sp of sectionPaths) {
             try {
               const fullPath = `${projectDir}/${sp}`;
-              const mdResult = await window.electronAPI!.readFile(fullPath);
+              const mdResult = await window.electronAPI.readFile(fullPath);
               mdResults.push({ name: sp.split('/').pop() || sp, content: mdResult.content ?? '' });
             } catch {
               mdResults.push({ name: sp.split('/').pop() || sp, content: '(読み込み失敗)' });
@@ -85,9 +85,9 @@ function TemplateGallery({ onApplyTemplate, onPopOut, onClose, isModal, isWindow
       const demo = defaultDemoData[stem];
       setPreviewYaml(demo.manifestYaml);
       setPreviewMdSections(
-        demo.sections
-          .filter(s => s.content !== null)
-          .map(s => ({ name: s.name, content: s.content! }))
+        demo.sections.flatMap(s =>
+          s.content !== null ? [{ name: s.name, content: s.content }] : []
+        )
       );
     }
 

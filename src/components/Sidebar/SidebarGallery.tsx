@@ -206,7 +206,10 @@ function SidebarGallery({ onOpenFullGallery }: { onOpenFullGallery: () => void }
                       {buildResult.outputPath && (
                         <button
                           className="sg-open-output-btn"
-                          onClick={(e) => handleOpenOutput(e, buildResult.outputPath!)}
+                          onClick={(e) => {
+                            const outputPath = buildResult.outputPath;
+                            if (outputPath) handleOpenOutput(e, outputPath);
+                          }}
                         >
                           <OpenIcon /> {buildResult.outputPath.split('/').pop()}
                         </button>

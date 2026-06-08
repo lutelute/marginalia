@@ -45,6 +45,8 @@ function BuildConfigCard() {
 
   if (!manifestData || !selectedManifestPath) return null;
 
+  const hoveredPreview = hoveredTemplate ? catalog?.templates[hoveredTemplate]?.preview : undefined;
+
   const toggleCollapse = () => {
     setCollapsed((prev) => {
       localStorage.setItem(COLLAPSED_KEY, (!prev).toString());
@@ -193,9 +195,9 @@ function BuildConfigCard() {
                   ))}
                 </div>
               )}
-              {hoveredTemplate && projectDir && catalog?.templates[hoveredTemplate]?.preview && dropdownListRef.current && (
+              {hoveredTemplate && projectDir && hoveredPreview && dropdownListRef.current && (
                 <TemplatePreviewPopup
-                  previewFile={catalog.templates[hoveredTemplate].preview!}
+                  previewFile={hoveredPreview}
                   projectDir={projectDir}
                   anchorRect={dropdownListRef.current.getBoundingClientRect()}
                 />

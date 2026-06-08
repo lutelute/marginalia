@@ -403,19 +403,20 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
         window.electronAPI.getFileStats(filePath),
       ]);
 
-      if (fileResult.success) {
+      if (fileResult.success && fileResult.content !== undefined) {
         const mtime = statsResult?.stats?.mtime || null;
+        const content = fileResult.content;
         dispatch({
           type: 'SET_CONTENT',
           payload: {
-            content: fileResult.content!,
+            content,
             mtime,
           },
         });
         // キャッシュに追加
         dispatch({
           type: 'CACHE_FILE_CONTENT',
-          payload: { filePath, content: fileResult.content!, mtime },
+          payload: { filePath, content, mtime },
         });
       } else {
         console.error('[FileContext] readFile failed:', fileResult.error);
@@ -456,11 +457,11 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
         window.electronAPI.getFileStats(state.currentFile),
       ]);
 
-      if (fileResult.success) {
+      if (fileResult.success && fileResult.content !== undefined) {
         dispatch({
           type: 'SET_CONTENT',
           payload: {
-            content: fileResult.content!,
+            content: fileResult.content,
             mtime: statsResult?.stats?.mtime || null,
           },
         });
@@ -562,8 +563,8 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
         return { success: false, error: result?.error ? humanizeError(result.error) : 'リネーム失敗' };
       }
       // 現在開いているファイルがリネーム対象なら更新
-      if (state.currentFile === filePath) {
-        dispatch({ type: 'SET_CURRENT_FILE', payload: result.newPath! });
+      if (state.currentFile === filePath && result.newPath !== undefined) {
+        dispatch({ type: 'SET_CURRENT_FILE', payload: result.newPath });
       }
       // ファイルツリーを更新
       if (state.rootPath) {
@@ -584,8 +585,8 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
         if (result?.error) console.error('[FileContext] moveFile failed:', result.error);
         return { success: false, error: result?.error ? humanizeError(result.error) : '移動失敗' };
       }
-      if (state.currentFile === oldPath) {
-        dispatch({ type: 'SET_CURRENT_FILE', payload: result.newPath! });
+      if (state.currentFile === oldPath && result.newPath !== undefined) {
+        dispatch({ type: 'SET_CURRENT_FILE', payload: result.newPath });
       }
       if (state.rootPath) {
         const tree = await window.electronAPI.readDirectory(state.rootPath, { showHidden: showHiddenFiles, systemDirs: excludePatterns });
@@ -686,11 +687,11 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
         window.electronAPI.getFileStats(filePath),
       ]);
 
-      if (fileResult.success) {
+      if (fileResult.success && fileResult.content !== undefined) {
         const mtime = statsResult?.stats?.mtime || null;
         dispatch({
           type: 'CACHE_FILE_CONTENT',
-          payload: { filePath, content: fileResult.content!, mtime },
+          payload: { filePath, content: fileResult.content, mtime },
         });
       }
     } catch (error) {

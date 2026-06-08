@@ -184,8 +184,9 @@ export default function AnnotatedPreview() {
         // フォールバック: コンテナレベルハイライト([data-annotation-id])の検知
         const targetEl = e.target as HTMLElement;
         const containerHighlight = targetEl.closest('[data-annotation-id]') as HTMLElement | null;
-        if (containerHighlight) {
-          const id = containerHighlight.getAttribute('data-annotation-id')!;
+        const containerId = containerHighlight?.getAttribute('data-annotation-id');
+        if (containerHighlight && containerId) {
+          const id = containerId;
           if (hoveredAnnotation !== id) setHoveredAnnotation(id);
 
           if (closeTimeoutRef.current) {
@@ -269,8 +270,9 @@ export default function AnnotatedPreview() {
         // 2. コンテナレベルハイライト上のクリック
         const targetEl = e.target as HTMLElement;
         const containerHighlight = targetEl.closest('[data-annotation-id]') as HTMLElement | null;
-        if (containerHighlight) {
-          const id = containerHighlight.getAttribute('data-annotation-id')!;
+        const containerId = containerHighlight?.getAttribute('data-annotation-id');
+        if (containerHighlight && containerId) {
+          const id = containerId;
           selectAnnotation(id);
           const ann = annotations.find((a) => a.id === id);
           if (ann) {

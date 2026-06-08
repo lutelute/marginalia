@@ -20,7 +20,7 @@ function TemplatePreviewPopup({ previewFile, projectDir, anchorRect }: TemplateP
       setError(null);
       try {
         const filePath = `${projectDir}/report-build-system/output/${previewFile}`;
-        const base64 = await window.electronAPI!.readFileAsBase64(filePath);
+        const base64 = await window.electronAPI.readFileAsBase64(filePath);
         if (cancelled) return;
 
         const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));

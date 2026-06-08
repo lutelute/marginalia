@@ -35,6 +35,7 @@ function ManifestEditor() {
   const templateNames = catalog?.templates ? Object.keys(catalog.templates) : [];
   const builtinTemplates = templateNames.filter(t => catalog?.templates[t]?._source !== 'custom');
   const customTemplates = templateNames.filter(t => catalog?.templates[t]?._source === 'custom');
+  const templateStyles = manifestData.template ? catalog?.templates[manifestData.template]?.styles : undefined;
 
   // 出力形式トグル
   const toggleOutput = (fmt: string) => {
@@ -170,7 +171,7 @@ function ManifestEditor() {
               </optgroup>
             )}
           </select>
-          {manifestData.template && catalog?.templates[manifestData.template]?.styles && (
+          {templateStyles && (
             <label className="me-label">
               スタイル
               <select
@@ -179,7 +180,7 @@ function ManifestEditor() {
                 onChange={(e) => handleChange('style', e.target.value)}
               >
                 <option value="">デフォルト</option>
-                {catalog.templates[manifestData.template].styles!.map((s) => (
+                {templateStyles.map((s) => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>

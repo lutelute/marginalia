@@ -264,7 +264,10 @@ function ProjectPanel() {
                   {buildResult.outputPath && (
                     <button
                       className="open-output-btn"
-                      onClick={(e) => handleOpenOutput(e, buildResult.outputPath!)}
+                      onClick={(e) => {
+                        const outputPath = buildResult.outputPath;
+                        if (outputPath) handleOpenOutput(e, outputPath);
+                      }}
                       title={buildResult.outputPath}
                     >
                       <OpenIcon />

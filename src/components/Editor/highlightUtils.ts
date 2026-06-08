@@ -189,8 +189,12 @@ export function usePreviewHighlights(
           hoveredRanges.push(...ranges);
         } else {
           const key = `annotation-${ann.type}`;
-          if (!rangesByType.has(key)) rangesByType.set(key, []);
-          rangesByType.get(key)!.push(...ranges);
+          let typeRanges = rangesByType.get(key);
+          if (!typeRanges) {
+            typeRanges = [];
+            rangesByType.set(key, typeRanges);
+          }
+          typeRanges.push(...ranges);
         }
       }
     }

@@ -214,10 +214,10 @@ function tabReducer(state: TabLayout, action: TabAction): TabLayout {
         };
       }
       // 別グループへ移動
-      let movedTab: Tab | null = null;
+      const movedTab =
+        state.groups.find((g) => g.id === fromGroupId)?.tabs.find((t) => t.id === tabId) ?? null;
       const newGroups = state.groups.map((g) => {
         if (g.id === fromGroupId) {
-          movedTab = g.tabs.find((t) => t.id === tabId) || null;
           const newTabs = g.tabs.filter((t) => t.id !== tabId);
           let newActiveId = g.activeTabId;
           if (g.activeTabId === tabId) {
@@ -228,14 +228,15 @@ function tabReducer(state: TabLayout, action: TabAction): TabLayout {
         return g;
       });
       if (movedTab) {
+        const tab = movedTab;
         return {
           ...state,
           groups: newGroups.map((g) => {
             if (g.id === toGroupId) {
               const tabs = [...g.tabs];
               const insertAt = index ?? tabs.length;
-              tabs.splice(insertAt, 0, movedTab!);
-              return { ...g, tabs, activeTabId: movedTab!.id };
+              tabs.splice(insertAt, 0, tab);
+              return { ...g, tabs, activeTabId: tab.id };
             }
             return g;
           }),
