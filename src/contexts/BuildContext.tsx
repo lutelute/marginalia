@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
 import type { ManifestInfo, TemplateInfo, BuildResult, DependencyStatus, ManifestData, CatalogData } from '../types';
 import { parseBibtex, type BibEntry } from '../codemirror/parsers/bibtex';
+import { humanizeError } from '../utils/errorMessages';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -211,6 +212,7 @@ export function BuildProvider({ children, rootPath }: { children: React.ReactNod
   const [state, dispatch] = useReducer(buildReducer, initialState);
 
   const detectProject = useCallback(async (dirPath: string) => {
+    if (!window.electronAPI) return;
     try {
       const result = await window.electronAPI.detectProject(dirPath);
       dispatch({
@@ -223,6 +225,7 @@ export function BuildProvider({ children, rootPath }: { children: React.ReactNod
   }, []);
 
   const loadProjectData = useCallback(async (dirPath: string) => {
+    if (!window.electronAPI) return;
     try {
       const [manifestsResult, templatesResult, catalogResult, sourceFilesResult, bibResult, deps] = await Promise.all([
         window.electronAPI.listManifests(dirPath),
@@ -262,10 +265,11 @@ export function BuildProvider({ children, rootPath }: { children: React.ReactNod
 
   const selectManifest = useCallback(async (path: string) => {
     dispatch({ type: 'SELECT_MANIFEST', payload: path });
+    if (!window.electronAPI) return;
     try {
       const result = await window.electronAPI.readManifest(path);
       if (result.success && result.data) {
-        dispatch({ type: 'SET_MANIFEST_DATA', payload: result.data as unknown as ManifestData });
+        dispatch({ type: 'SET_MANIFEST_DATA', payload: result.data as ManifestData });
       }
     } catch (error) {
       console.error('Failed to read manifest:', error);
@@ -277,8 +281,9 @@ export function BuildProvider({ children, rootPath }: { children: React.ReactNod
   }, []);
 
   const saveManifest = useCallback(async (path: string, data: ManifestData): Promise<boolean> => {
+    if (!window.electronAPI) return false;
     try {
-      const result = await window.electronAPI.writeManifest(path, data as unknown as Record<string, unknown>);
+      const result = await window.electronAPI.writeManifest(path, data);
       if (result.success && state.projectDir) {
         await loadProjectData(state.projectDir);
       }
@@ -300,7 +305,7 @@ export function BuildProvider({ children, rootPath }: { children: React.ReactNod
   }, [state.projectDir, loadProjectData]);
 
   const createCustomTemplate = useCallback(async (name: string, baseTemplate?: string) => {
-    if (!state.projectDir) return { success: false, error: 'プロジェクトが未検出です' };
+    if (!state.projectDir || !window.electronAPI) return { success: false, error: 'プロジェクトが未検出です' };
     const result = await window.electronAPI.createCustomTemplate(state.projectDir, name, baseTemplate);
     if (result.success) {
       await loadProjectData(state.projectDir);
@@ -309,7 +314,7 @@ export function BuildProvider({ children, rootPath }: { children: React.ReactNod
   }, [state.projectDir, loadProjectData]);
 
   const deleteCustomTemplate = useCallback(async (name: string) => {
-    if (!state.projectDir) return { success: false, error: 'プロジェクトが未検出です' };
+    if (!state.projectDir || !window.electronAPI) return { success: false, error: 'プロジェクトが未検出です' };
     const result = await window.electronAPI.deleteCustomTemplate(state.projectDir, name);
     if (result.success) {
       await loadProjectData(state.projectDir);
@@ -327,8 +332,9 @@ export function BuildProvider({ children, rootPath }: { children: React.ReactNod
       } else {
         dispatch({ type: 'BUILD_ERROR', payload: result });
       }
-    } catch (error: any) {
-      dispatch({ type: 'BUILD_ERROR', payload: { success: false, error: error.message } });
+    } catch (error) {
+      console.error('[BuildContext] quickBuildDemo failed:', error);
+      dispatch({ type: 'BUILD_ERROR', payload: { success: false, error: humanizeError(error) } });
     }
   }, []);
 
@@ -338,7 +344,7 @@ export function BuildProvider({ children, rootPath }: { children: React.ReactNod
     try {
       const result = await window.electronAPI.runAllDemos(format);
       dispatch({ type: 'BUILD_ALL_COMPLETE', payload: result.results || [] });
-    } catch (error: any) {
+    } catch {
       dispatch({ type: 'BUILD_ALL_COMPLETE', payload: [] });
     }
   }, []);
@@ -355,7 +361,7 @@ export function BuildProvider({ children, rootPath }: { children: React.ReactNod
   }, [state.projectDir, loadProjectData]);
 
   const runBuild = useCallback(async (manifestPath: string, format: string) => {
-    if (!state.projectDir) return;
+    if (!state.projectDir || !window.electronAPI) return;
 
     // ビルド対象マニフェストが選択中でメモリ上に変更がある場合、自動保存
     if (state.selectedManifestPath === manifestPath && state.manifestData) {
@@ -375,10 +381,11 @@ export function BuildProvider({ children, rootPath }: { children: React.ReactNod
       } else {
         dispatch({ type: 'BUILD_ERROR', payload: result });
       }
-    } catch (error: any) {
+    } catch (error) {
+      console.error('[BuildContext] runBuild failed:', error);
       dispatch({
         type: 'BUILD_ERROR',
-        payload: { success: false, error: error.message },
+        payload: { success: false, error: humanizeError(error) },
       });
     }
   }, [state.projectDir, state.selectedManifestPath, state.manifestData, saveManifest]);

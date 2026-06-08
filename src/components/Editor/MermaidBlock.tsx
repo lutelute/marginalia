@@ -15,23 +15,66 @@ function getMermaid() {
   return mermaidPromise;
 }
 
+// レンダリング結果のキャッシュ（キー: `${theme}:${code}`、値: SVG文字列）
+// プレビュー再レンダリングのたびに mermaid.render() が再実行されるのを防ぐ。
+const MERMAID_CACHE_LIMIT = 100;
+const mermaidRenderCache = new Map<string, string>();
+
+function getCachedSvg(key: string): string | undefined {
+  return mermaidRenderCache.get(key);
+}
+
+function setCachedSvg(key: string, svg: string) {
+  // Map は挿入順を保持するため、上限超過時は最古のエントリ（first key）を削除する。
+  if (!mermaidRenderCache.has(key) && mermaidRenderCache.size >= MERMAID_CACHE_LIMIT) {
+    const oldestKey = mermaidRenderCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      mermaidRenderCache.delete(oldestKey);
+    }
+  }
+  mermaidRenderCache.set(key, svg);
+}
+
 function MermaidBlock({ code }: MermaidBlockProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [svgHtml, setSvgHtml] = useState<string | null>(null);
+
+  // 初期マウント時にキャッシュヒットすれば、mermaid を import せず即座に表示する。
+  // テーマ検出は描画時とキャッシュキー生成で共通利用する。
+  const detectTheme = () =>
+    !document.documentElement.hasAttribute('data-theme') ||
+    document.documentElement.getAttribute('data-theme') === 'dark'
+      ? 'dark'
+      : 'default';
+
+  const [svgHtml, setSvgHtml] = useState<string | null>(() => {
+    const cached = getCachedSvg(`${detectTheme()}:${code}`);
+    return cached ?? null;
+  });
   const [error, setError] = useState<string | null>(null);
   const uniqueId = useId().replace(/:/g, '-');
 
   useEffect(() => {
     let cancelled = false;
 
+    // テーマ検出（キャッシュキーに含める）
+    const theme = detectTheme();
+    const cacheKey = `${theme}:${code}`;
+
+    // キャッシュヒット時は mermaid を import せず即座に SVG を表示し、
+    // 動的 import の遅延も回避する。
+    const cached = getCachedSvg(cacheKey);
+    if (cached !== undefined) {
+      setSvgHtml(cached);
+      setError(null);
+      return () => { cancelled = true; };
+    }
+
     async function render() {
       try {
         const mermaidModule = await getMermaid();
         const mermaid = mermaidModule.default;
 
-        // テーマ検出
-        const isDark = !document.documentElement.hasAttribute('data-theme') ||
-          document.documentElement.getAttribute('data-theme') === 'dark';
+        const isDark = theme === 'dark';
 
         if (!mermaidInitialized) {
           mermaid.initialize({
@@ -51,6 +94,9 @@ function MermaidBlock({ code }: MermaidBlockProps) {
 
         const id = `mermaid-${uniqueId}-${Date.now()}`;
         const { svg } = await mermaid.render(id, code);
+
+        // レンダリング結果をキャッシュに保存（テーマ切替時はキーが変わり自然に再描画）。
+        setCachedSvg(cacheKey, svg);
 
         if (!cancelled) {
           setSvgHtml(svg);

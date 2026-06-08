@@ -1,6 +1,7 @@
 import React from 'react';
+import type { HistoryEntryV2 } from '../../types/annotations';
 
-const ACTION_ICONS = {
+const ACTION_ICONS: Record<string, string> = {
   comment: '💬',
   review: '✏️',
   pending: '⏳',
@@ -16,11 +17,11 @@ const ACTION_LABELS = {
   edit: '編集',
 };
 
-function HistoryItem({ item }) {
-  const formatDate = (dateString) => {
+function HistoryItem({ item }: { item: HistoryEntryV2 }) {
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
-    const diffMs = now - date;
+    const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);

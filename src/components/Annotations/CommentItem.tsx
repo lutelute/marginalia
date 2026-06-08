@@ -21,7 +21,7 @@ function CommentItem({ annotation }: { annotation: AnnotationV2 }) {
   const selectedText = getAnnotationExactText(annotation);
   const editorPos = getEditorPosition(annotation);
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('ja-JP', {
       month: 'short',

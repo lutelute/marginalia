@@ -1,17 +1,23 @@
 import React, { useState, useCallback, useRef } from 'react';
 
-function SplitPane({ left, right, initialLeftWidth = 50 }) {
+interface SplitPaneProps {
+  left: React.ReactNode;
+  right: React.ReactNode;
+  initialLeftWidth?: number;
+}
+
+function SplitPane({ left, right, initialLeftWidth = 50 }: SplitPaneProps) {
   const [leftWidth, setLeftWidth] = useState(initialLeftWidth);
-  const containerRef = useRef(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
 
-  const handleMouseDown = useCallback((e) => {
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     isDragging.current = true;
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
 
-    const handleMouseMove = (e) => {
+    const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging.current || !containerRef.current) return;
 
       const containerRect = containerRef.current.getBoundingClientRect();

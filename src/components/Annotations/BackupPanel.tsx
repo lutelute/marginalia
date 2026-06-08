@@ -2,16 +2,20 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useFile } from '../../contexts/FileContext';
 import { useAnnotation } from '../../contexts/AnnotationContext';
 import DiffPanel from './DiffPanel';
+import type { BackupInfo } from '../../types';
+
+type BackupType = 'file' | 'annotation';
+type PreviewBackup = BackupInfo & { type: 'file' | 'annotation' };
 
 function BackupPanel() {
   const { currentFile, openFile, content: currentContent } = useFile();
   const { annotations } = useAnnotation();
-  const [backupType, setBackupType] = useState('file'); // 'file' | 'annotation'
-  const [fileBackups, setFileBackups] = useState([]);
-  const [annotationBackups, setAnnotationBackups] = useState([]);
+  const [backupType, setBackupType] = useState<BackupType>('file');
+  const [fileBackups, setFileBackups] = useState<BackupInfo[]>([]);
+  const [annotationBackups, setAnnotationBackups] = useState<BackupInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [previewContent, setPreviewContent] = useState(null);
-  const [previewBackup, setPreviewBackupData] = useState(null);
+  const [previewContent, setPreviewContent] = useState<string | null>(null);
+  const [previewBackup, setPreviewBackupData] = useState<PreviewBackup | null>(null);
   const [showDiff, setShowDiff] = useState(false);
 
   // ファイルバックアップ一覧を取得
@@ -55,7 +59,7 @@ function BackupPanel() {
   }, [loadBackups]);
 
   // ファイルバックアップをプレビュー
-  const handlePreviewFile = async (backup) => {
+  const handlePreviewFile = async (backup: BackupInfo) => {
     try {
       const result = await window.electronAPI.previewBackup(backup.path);
       if (result.success) {
@@ -68,7 +72,8 @@ function BackupPanel() {
   };
 
   // ファイルバックアップから復元
-  const handleRestoreFile = async (backup) => {
+  const handleRestoreFile = async (backup: BackupInfo) => {
+    if (!currentFile) return;
     if (!confirm(`${formatDate(backup.createdAt)} のバックアップから復元しますか？\n\n現在の内容はバックアップされます。`)) {
       return;
     }
@@ -87,7 +92,8 @@ function BackupPanel() {
   };
 
   // 注釈バックアップから復元
-  const handleRestoreAnnotation = async (backup) => {
+  const handleRestoreAnnotation = async (backup: BackupInfo) => {
+    if (!currentFile) return;
     if (!confirm(`${formatDate(backup.createdAt)} の注釈バックアップから復元しますか？\n\n現在の注釈はバックアップされます。`)) {
       return;
     }
@@ -104,7 +110,7 @@ function BackupPanel() {
   };
 
   // バックアップを削除
-  const handleDelete = async (backup) => {
+  const handleDelete = async (backup: BackupInfo) => {
     if (!confirm('このバックアップを削除しますか？')) {
       return;
     }
@@ -125,6 +131,7 @@ function BackupPanel() {
 
   // 手動バックアップ作成
   const handleCreateBackup = async () => {
+    if (!currentFile) return;
     try {
       const result = await window.electronAPI.createBackup(currentFile);
       if (result.success) {
@@ -135,7 +142,7 @@ function BackupPanel() {
     }
   };
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleString('ja-JP', {
       year: 'numeric',
@@ -147,7 +154,7 @@ function BackupPanel() {
     });
   };
 
-  const formatSize = (bytes) => {
+  const formatSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -225,7 +232,7 @@ function BackupPanel() {
                 <div className="backup-date">{formatDate(backup.createdAt)}</div>
                 <div className="backup-size">
                   {backupType === 'file'
-                    ? formatSize(backup.size)
+                    ? formatSize(backup.size ?? 0)
                     : `${backup.annotationCount}件の注釈`}
                 </div>
               </div>

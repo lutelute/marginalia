@@ -8,10 +8,11 @@ import TimelineView from './TimelineView';
 import OrphanedAnnotations from './OrphanedAnnotations';
 import { ANNOTATION_TYPE_CONFIGS } from '../../constants/annotationTypes';
 import { getEditorPosition, getAnnotationExactText } from '../../utils/selectorUtils';
+import type { AnnotationType } from '../../types/annotations';
 
 function AnnotationPanel() {
   const [activeTab, setActiveTab] = useState('annotations');
-  const [newAnnotationType, setNewAnnotationType] = useState('comment');
+  const [newAnnotationType, setNewAnnotationType] = useState<AnnotationType>('comment');
   const [newAnnotationContent, setNewAnnotationContent] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'unresolved' | 'resolved'>('all');
   const [filterTypes, setFilterTypes] = useState<string[]>([]);

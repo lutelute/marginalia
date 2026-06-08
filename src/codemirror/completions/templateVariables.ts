@@ -42,7 +42,7 @@ export function createTemplateVariablesCompletion(catalog: CatalogData | null) {
     if (!word && !context.explicit) return null;
 
     // Combine common keys with catalog-specific params
-    let options = [...COMMON_FRONTMATTER_KEYS];
+    const options = [...COMMON_FRONTMATTER_KEYS];
     if (catalog?.common_params) {
       for (const key of Object.keys(catalog.common_params)) {
         if (!options.some(o => o.label === key)) {

@@ -68,7 +68,7 @@ function LinkPreviewPopup({ href, position, rootPath, currentFile, onClose }: Li
         const result = await window.electronAPI?.readFile(targetPath);
         if (result?.success) {
           // 最初の500文字程度を抽出
-          const preview = result.content.slice(0, 1000);
+          const preview = (result.content ?? '').slice(0, 1000);
           setContent(preview);
         } else {
           setError('ファイルが見つかりません');

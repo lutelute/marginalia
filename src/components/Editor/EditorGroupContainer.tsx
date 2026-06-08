@@ -12,7 +12,7 @@ function EditorGroupContainer() {
     const rect = containerRef.current.getBoundingClientRect();
     const totalSize = isVertical ? rect.height : rect.width;
 
-    let posPx = isVertical ? (clientPos - rect.top) : (clientPos - rect.left);
+    const posPx = isVertical ? (clientPos - rect.top) : (clientPos - rect.left);
     let posPercent = (posPx / totalSize) * 100;
 
     const minPercent = 20;

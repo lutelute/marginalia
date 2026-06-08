@@ -8,7 +8,7 @@ function CommentThread({ annotation, isSelected }: { annotation: AnnotationV2; i
   const [isExpanded, setIsExpanded] = useState(true);
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [replyContent, setReplyContent] = useState('');
-  const threadRef = useRef(null);
+  const threadRef = useRef<HTMLDivElement>(null);
 
   const {
     selectAnnotation,
@@ -41,10 +41,10 @@ function CommentThread({ annotation, isSelected }: { annotation: AnnotationV2; i
     }
   }, [isSelected]);
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
-    const diffMs = now - date;
+    const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
@@ -67,7 +67,7 @@ function CommentThread({ annotation, isSelected }: { annotation: AnnotationV2; i
     setShowReplyForm(false);
   };
 
-  const handleToggle = (e) => {
+  const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsExpanded(!isExpanded);
   };

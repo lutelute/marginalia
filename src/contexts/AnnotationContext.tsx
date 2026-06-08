@@ -9,6 +9,7 @@ import {
   AnnotationSelector,
   AnnotationTarget,
   HistoryEntryV2,
+  MarginaliaFileV1,
   MarginaliaFileV2,
   PendingSelectionV2,
   TextQuoteSelector,
@@ -203,7 +204,33 @@ function annotationReducer(state: AnnotationState, action: AnnotationAction): An
 
 // --- Context ---
 
-const AnnotationContext = createContext<any>(null);
+export interface AnnotationContextValue extends AnnotationState {
+  addAnnotation: (
+    type: AnnotationType,
+    content: string,
+    selection: PendingSelectionV2 & { text?: string }
+  ) => void;
+  updateAnnotation: (id: string, updates: Partial<AnnotationV2>) => void;
+  deleteAnnotation: (id: string) => void;
+  selectAnnotation: (id: string | null) => void;
+  setPendingSelection: (selection: PendingSelectionV2 | null) => void;
+  addReply: (annotationId: string, replyContent: string) => void;
+  resolveAnnotation: (id: string, resolved?: boolean) => void;
+  scrollToEditorLine: (line: number, annotationId: string) => void;
+  clearScrollToLine: () => void;
+  setDocumentText: (text: string) => void;
+  setAnnotationStatus: (id: string, status: AnnotationStatus) => void;
+  keepAnnotation: (id: string) => void;
+  reassignAnnotation: (id: string, newText: string, occurrenceIndex?: number) => void;
+  detectOrphanedAnnotations: (documentText: string) => string[];
+  clearAnnotationCache: (filePath: string) => void;
+  orphanedAnnotations: AnnotationV2[];
+  keptAnnotations: AnnotationV2[];
+  activeAnnotations: AnnotationV2[];
+  resolvedAnnotations: AnnotationV2[];
+}
+
+const AnnotationContext = createContext<AnnotationContextValue | null>(null);
 
 export function AnnotationProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(annotationReducer, initialState);
@@ -252,11 +279,11 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
 
     const loadData = async () => {
       dispatch({ type: 'SET_LOADING', payload: true });
-      const result = await window.electronAPI.readMarginalia(currentFile);
-      if (result.success) {
+      const result = await window.electronAPI?.readMarginalia(currentFile);
+      if (result && result.success && result.data) {
         if (result.needsMigration) {
           // V1→V2マイグレーション
-          const v2Data = migrateFile(result.data, content || undefined);
+          const v2Data = migrateFile(result.data as unknown as MarginaliaFileV1, content || undefined);
           dispatch({
             type: 'LOAD_DATA',
             payload: {
@@ -299,7 +326,7 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
       history: state.history,
     };
 
-    await window.electronAPI.writeMarginalia(currentFile, data);
+    await window.electronAPI?.writeMarginalia(currentFile, data);
   }, [currentFile, state.annotations, state.history]);
 
   // annotations/history変更時に保存 + キャッシュ更新
@@ -568,7 +595,7 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
     return state.annotations.filter((a) => a.status === 'resolved');
   }, [state.annotations]);
 
-  const value = {
+  const value: AnnotationContextValue = {
     ...state,
     addAnnotation,
     updateAnnotation,

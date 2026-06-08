@@ -1,14 +1,32 @@
-import React, { createContext, useContext, useReducer, useCallback, useState, useEffect } from 'react';
-import { OrphanedFileData, FileContentCache } from '../types';
+import React, { createContext, useContext, useReducer, useCallback, useState, useEffect, useRef } from 'react';
+import {
+  OrphanedFileData,
+  FileState,
+  FileAction,
+  FileContextValue,
+  FileStats,
+  FileOperationResult,
+} from '../types';
+import { humanizeError } from '../utils/errorMessages';
 
-export const FileContext = createContext(null);
+/**
+ * UI 表示用のユーザー向けメッセージを取得する。
+ * 元の技術的エラーは握りつぶさず console.error に残したうえで、
+ * 表示用には humanizeError で変換した日本語を返す。
+ */
+function getErrorMessage(error: unknown): string {
+  console.error('[FileContext] error:', error);
+  return humanizeError(error);
+}
+
+export const FileContext = createContext<FileContextValue | null>(null);
 
 const RECENT_FOLDERS_KEY = 'marginalia-recent-folders';
 const MAX_RECENT_FOLDERS = 5;
 const IS_DEVELOPMENT = import.meta.env.DEV;
 const DEV_SAMPLES_PATH = '/Users/shigenoburyuto/Documents/GitHub/tool_dev_SGNB/marginalia/report-build-system';
 
-const initialState = {
+const initialState: FileState = {
   rootPath: null,
   fileTree: [],
   currentFile: null,
@@ -18,12 +36,12 @@ const initialState = {
   isLoading: false,
   error: null,
   externalChangeDetected: false,
-  lastKnownMtime: null as string | null,
-  orphanedFiles: [] as OrphanedFileData[], // 削除されたファイルの注釈データ
-  contentCache: {} as Record<string, FileContentCache>,
+  lastKnownMtime: null,
+  orphanedFiles: [], // 削除されたファイルの注釈データ
+  contentCache: {},
 };
 
-function fileReducer(state, action) {
+function fileReducer(state: FileState, action: FileAction): FileState {
   switch (action.type) {
     case 'SET_ROOT_PATH':
       return {
@@ -183,10 +201,14 @@ function fileReducer(state, action) {
   }
 }
 
-export function FileProvider({ children, showHiddenFiles = false }: { children: React.ReactNode; showHiddenFiles?: boolean }) {
+export function FileProvider({ children, showHiddenFiles = false, excludePatterns = [] }: { children: React.ReactNode; showHiddenFiles?: boolean; excludePatterns?: string[] }) {
   const [state, dispatch] = useReducer(fileReducer, initialState);
-  const [recentFolders, setRecentFolders] = useState([]);
-  const [fileMetadata, setFileMetadata] = useState(null);
+  const [recentFolders, setRecentFolders] = useState<string[]>([]);
+  const [fileMetadata, setFileMetadata] = useState<FileStats | null>(null);
+  // 自アプリの保存直後タイムスタンプ（外部変更イベントの自己起因ガード用）
+  const lastSaveAtRef = useRef<number>(0);
+  // 保存直後にこのミリ秒以内に来た fs.watch イベントは自己起因とみなして無視
+  const SELF_SAVE_IGNORE_MS = 1000;
 
   // 起動時に最近のフォルダを読み込み
   useEffect(() => {
@@ -212,11 +234,11 @@ export function FileProvider({ children, showHiddenFiles = false }: { children: 
         try {
           dispatch({ type: 'SET_ROOT_PATH', payload: DEV_SAMPLES_PATH });
           dispatch({ type: 'SET_LOADING', payload: true });
-          const tree = await window.electronAPI.readDirectory(DEV_SAMPLES_PATH, { showHidden: showHiddenFiles });
+          const tree = await window.electronAPI.readDirectory(DEV_SAMPLES_PATH, { showHidden: showHiddenFiles, systemDirs: excludePatterns });
           dispatch({ type: 'SET_FILE_TREE', payload: tree });
           console.log('[DEV] Loaded dev-samples folder automatically');
         } catch (error) {
-          console.warn('[DEV] Could not load dev-samples:', error.message);
+          console.warn('[DEV] Could not load dev-samples:', getErrorMessage(error));
         }
       };
       loadDevSamples();
@@ -224,7 +246,7 @@ export function FileProvider({ children, showHiddenFiles = false }: { children: 
   }, [devInitialized, state.rootPath]);
 
   // 最近のフォルダをlocalStorageに保存
-  const saveRecentFolder = useCallback((folderPath) => {
+  const saveRecentFolder = useCallback((folderPath: string) => {
     setRecentFolders((prev) => {
       // 既存のリストから同じパスを削除し、先頭に追加
       const filtered = prev.filter((p) => p !== folderPath);
@@ -235,16 +257,16 @@ export function FileProvider({ children, showHiddenFiles = false }: { children: 
   }, []);
 
   // パスを指定してディレクトリを開く
-  const openDirectoryByPath = useCallback(async (dirPath) => {
+  const openDirectoryByPath = useCallback(async (dirPath: string) => {
     try {
       dispatch({ type: 'SET_ROOT_PATH', payload: dirPath });
       dispatch({ type: 'SET_LOADING', payload: true });
 
-      const tree = await window.electronAPI.readDirectory(dirPath, { showHidden: showHiddenFiles });
+      const tree = await window.electronAPI.readDirectory(dirPath, { showHidden: showHiddenFiles, systemDirs: excludePatterns });
       dispatch({ type: 'SET_FILE_TREE', payload: tree });
       saveRecentFolder(dirPath);
     } catch (error) {
-      dispatch({ type: 'SET_ERROR', payload: error.message });
+      dispatch({ type: 'SET_ERROR', payload: getErrorMessage(error) });
       // フォルダが存在しない場合、リストから削除
       setRecentFolders((prev) => {
         const updated = prev.filter((p) => p !== dirPath);
@@ -262,13 +284,13 @@ export function FileProvider({ children, showHiddenFiles = false }: { children: 
       dispatch({ type: 'SET_ROOT_PATH', payload: dirPath });
       dispatch({ type: 'SET_LOADING', payload: true });
 
-      const tree = await window.electronAPI.readDirectory(dirPath, { showHidden: showHiddenFiles });
+      const tree = await window.electronAPI.readDirectory(dirPath, { showHidden: showHiddenFiles, systemDirs: excludePatterns });
       dispatch({ type: 'SET_FILE_TREE', payload: tree });
       saveRecentFolder(dirPath);
     } catch (error) {
-      dispatch({ type: 'SET_ERROR', payload: error.message });
+      dispatch({ type: 'SET_ERROR', payload: getErrorMessage(error) });
     }
-  }, [saveRecentFolder, showHiddenFiles]);
+  }, [saveRecentFolder, showHiddenFiles, excludePatterns]);
 
   // 最近のフォルダをクリア
   const clearRecentFolders = useCallback(() => {
@@ -277,10 +299,10 @@ export function FileProvider({ children, showHiddenFiles = false }: { children: 
   }, []);
 
   // ファイルメタデータを取得
-  const loadFileMetadata = useCallback(async (filePath) => {
+  const loadFileMetadata = useCallback(async (filePath: string) => {
     try {
       const result = await window.electronAPI.getFileStats(filePath);
-      if (result.success) {
+      if (result?.success && result.stats) {
         setFileMetadata(result.stats);
       }
     } catch (error) {
@@ -349,17 +371,17 @@ export function FileProvider({ children, showHiddenFiles = false }: { children: 
 
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
-      const tree = await window.electronAPI.readDirectory(state.rootPath, { showHidden: showHiddenFiles });
+      const tree = await window.electronAPI.readDirectory(state.rootPath, { showHidden: showHiddenFiles, systemDirs: excludePatterns });
       dispatch({ type: 'SET_FILE_TREE', payload: tree });
 
       // 孤立ファイルを検出
       detectOrphanedFiles(state.rootPath);
     } catch (error) {
-      dispatch({ type: 'SET_ERROR', payload: error.message });
+      dispatch({ type: 'SET_ERROR', payload: getErrorMessage(error) });
     }
-  }, [state.rootPath, detectOrphanedFiles, showHiddenFiles]);
+  }, [state.rootPath, detectOrphanedFiles, showHiddenFiles, excludePatterns]);
 
-  const openFile = useCallback(async (filePath) => {
+  const openFile = useCallback(async (filePath: string) => {
     try {
       dispatch({ type: 'SET_CURRENT_FILE', payload: filePath });
 
@@ -387,20 +409,21 @@ export function FileProvider({ children, showHiddenFiles = false }: { children: 
         dispatch({
           type: 'SET_CONTENT',
           payload: {
-            content: fileResult.content,
+            content: fileResult.content!,
             mtime,
           },
         });
         // キャッシュに追加
         dispatch({
           type: 'CACHE_FILE_CONTENT',
-          payload: { filePath, content: fileResult.content, mtime },
+          payload: { filePath, content: fileResult.content!, mtime },
         });
       } else {
-        dispatch({ type: 'SET_ERROR', payload: fileResult.error });
+        console.error('[FileContext] readFile failed:', fileResult.error);
+        dispatch({ type: 'SET_ERROR', payload: humanizeError(fileResult.error) });
       }
     } catch (error) {
-      dispatch({ type: 'SET_ERROR', payload: error.message });
+      dispatch({ type: 'SET_ERROR', payload: getErrorMessage(error) });
     }
   }, [state.contentCache]);
 
@@ -438,15 +461,16 @@ export function FileProvider({ children, showHiddenFiles = false }: { children: 
         dispatch({
           type: 'SET_CONTENT',
           payload: {
-            content: fileResult.content,
+            content: fileResult.content!,
             mtime: statsResult?.stats?.mtime || null,
           },
         });
       } else {
-        dispatch({ type: 'SET_ERROR', payload: fileResult.error });
+        console.error('[FileContext] reloadFile failed:', fileResult.error);
+        dispatch({ type: 'SET_ERROR', payload: humanizeError(fileResult.error) });
       }
     } catch (error) {
-      dispatch({ type: 'SET_ERROR', payload: error.message });
+      dispatch({ type: 'SET_ERROR', payload: getErrorMessage(error) });
     }
   }, [state.currentFile]);
 
@@ -506,7 +530,7 @@ export function FileProvider({ children, showHiddenFiles = false }: { children: 
       return { success: true };
     } catch (error) {
       console.error('Failed to reassign orphaned file:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: getErrorMessage(error) };
     }
   }, []);
 
@@ -523,11 +547,12 @@ export function FileProvider({ children, showHiddenFiles = false }: { children: 
         dispatch({ type: 'REMOVE_ORPHANED_FILE', payload: orphanedFile.filePath });
         return { success: true };
       } else {
-        return { success: false, error: result?.error || 'Failed to delete file' };
+        if (result?.error) console.error('[FileContext] deleteOrphanedFile failed:', result.error);
+        return { success: false, error: result?.error ? humanizeError(result.error) : 'Failed to delete file' };
       }
     } catch (error) {
       console.error('Failed to delete orphaned file:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: getErrorMessage(error) };
     }
   }, []);
 
@@ -536,49 +561,51 @@ export function FileProvider({ children, showHiddenFiles = false }: { children: 
     try {
       const result = await window.electronAPI.renameFile(filePath, newName);
       if (!result?.success) {
-        return { success: false, error: result?.error || 'リネーム失敗' };
+        if (result?.error) console.error('[FileContext] renameFile failed:', result.error);
+        return { success: false, error: result?.error ? humanizeError(result.error) : 'リネーム失敗' };
       }
       // 現在開いているファイルがリネーム対象なら更新
       if (state.currentFile === filePath) {
-        dispatch({ type: 'SET_CURRENT_FILE', payload: result.newPath });
+        dispatch({ type: 'SET_CURRENT_FILE', payload: result.newPath! });
       }
       // ファイルツリーを更新
       if (state.rootPath) {
-        const tree = await window.electronAPI.readDirectory(state.rootPath, { showHidden: showHiddenFiles });
+        const tree = await window.electronAPI.readDirectory(state.rootPath, { showHidden: showHiddenFiles, systemDirs: excludePatterns });
         dispatch({ type: 'SET_FILE_TREE', payload: tree });
       }
       return { success: true, newPath: result.newPath };
     } catch (error) {
-      return { success: false, error: error.message };
+      return { success: false, error: getErrorMessage(error) };
     }
-  }, [state.currentFile, state.rootPath, showHiddenFiles]);
+  }, [state.currentFile, state.rootPath, showHiddenFiles, excludePatterns]);
 
   // ファイル移動（注釈も自動追従）
   const moveFileWithAnnotations = useCallback(async (oldPath: string, newPath: string) => {
     try {
       const result = await window.electronAPI.moveFile(oldPath, newPath);
       if (!result?.success) {
-        return { success: false, error: result?.error || '移動失敗' };
+        if (result?.error) console.error('[FileContext] moveFile failed:', result.error);
+        return { success: false, error: result?.error ? humanizeError(result.error) : '移動失敗' };
       }
       if (state.currentFile === oldPath) {
-        dispatch({ type: 'SET_CURRENT_FILE', payload: result.newPath });
+        dispatch({ type: 'SET_CURRENT_FILE', payload: result.newPath! });
       }
       if (state.rootPath) {
-        const tree = await window.electronAPI.readDirectory(state.rootPath, { showHidden: showHiddenFiles });
+        const tree = await window.electronAPI.readDirectory(state.rootPath, { showHidden: showHiddenFiles, systemDirs: excludePatterns });
         dispatch({ type: 'SET_FILE_TREE', payload: tree });
       }
       return { success: true, newPath: result.newPath };
     } catch (error) {
-      return { success: false, error: error.message };
+      return { success: false, error: getErrorMessage(error) };
     }
-  }, [state.currentFile, state.rootPath, showHiddenFiles]);
+  }, [state.currentFile, state.rootPath, showHiddenFiles, excludePatterns]);
 
-  // showHiddenFiles 変更時にファイルツリーを再読み込み
+  // showHiddenFiles / excludePatterns 変更時にファイルツリーを再読み込み
   useEffect(() => {
     if (state.rootPath) {
       refreshDirectory();
     }
-  }, [showHiddenFiles]);
+  }, [showHiddenFiles, excludePatterns]);
 
   // 定期的に外部変更をチェック（5秒ごと）
   useEffect(() => {
@@ -591,7 +618,37 @@ export function FileProvider({ children, showHiddenFiles = false }: { children: 
     return () => clearInterval(interval);
   }, [state.currentFile, checkExternalChange]);
 
-  const updateContent = useCallback((content) => {
+  // 開いているファイルが変わったら fs.watch を張り替える（リアルタイム外部変更検出）
+  useEffect(() => {
+    if (!window.electronAPI?.watchFile) return;
+
+    const filePath = state.currentFile;
+    if (!filePath) {
+      window.electronAPI.unwatchFile?.();
+      return;
+    }
+
+    // 監視開始（main 側で既存 watcher を閉じて張り替え）
+    window.electronAPI.watchFile(filePath).catch((e) => {
+      console.warn('Failed to watch file:', getErrorMessage(e));
+    });
+
+    // 外部変更イベント受信
+    const unsubscribe = window.electronAPI.onFileChangedExternally?.((changedPath) => {
+      // 監視対象が切り替わった後の遅延イベントは無視
+      if (changedPath !== filePath) return;
+      // 自アプリの保存直後（SELF_SAVE_IGNORE_MS 以内）のイベントは自己起因として無視
+      if (Date.now() - lastSaveAtRef.current < SELF_SAVE_IGNORE_MS) return;
+      dispatch({ type: 'EXTERNAL_CHANGE_DETECTED' });
+    });
+
+    return () => {
+      unsubscribe?.();
+      window.electronAPI.unwatchFile?.();
+    };
+  }, [state.currentFile]);
+
+  const updateContent = useCallback((content: string) => {
     dispatch({ type: 'UPDATE_CONTENT', payload: content });
     // キャッシュも更新
     if (state.currentFile) {
@@ -606,16 +663,19 @@ export function FileProvider({ children, showHiddenFiles = false }: { children: 
     if (!state.currentFile) return;
 
     try {
+      // 保存直前にタイムスタンプを記録（自己起因の外部変更イベントを無視するため）
+      lastSaveAtRef.current = Date.now();
       const result = await window.electronAPI.writeFile(state.currentFile, state.content);
       if (result.success) {
         dispatch({ type: 'MARK_SAVED' });
         // キャッシュも保存済みに
         dispatch({ type: 'MARK_CACHED_SAVED', payload: state.currentFile });
       } else {
-        dispatch({ type: 'SET_ERROR', payload: result.error });
+        console.error('[FileContext] saveFile failed:', result.error);
+        dispatch({ type: 'SET_ERROR', payload: humanizeError(result.error) });
       }
     } catch (error) {
-      dispatch({ type: 'SET_ERROR', payload: error.message });
+      dispatch({ type: 'SET_ERROR', payload: getErrorMessage(error) });
     }
   }, [state.currentFile, state.content]);
 
@@ -633,7 +693,7 @@ export function FileProvider({ children, showHiddenFiles = false }: { children: 
         const mtime = statsResult?.stats?.mtime || null;
         dispatch({
           type: 'CACHE_FILE_CONTENT',
-          payload: { filePath, content: fileResult.content, mtime },
+          payload: { filePath, content: fileResult.content!, mtime },
         });
       }
     } catch (error) {
@@ -659,6 +719,10 @@ export function FileProvider({ children, showHiddenFiles = false }: { children: 
     if (!cached) return;
 
     try {
+      // 保存直前にタイムスタンプを記録（自己起因の外部変更イベントを無視するため）
+      if (filePath === state.currentFile) {
+        lastSaveAtRef.current = Date.now();
+      }
       const result = await window.electronAPI.writeFile(filePath, cached.content);
       if (result.success) {
         dispatch({ type: 'MARK_CACHED_SAVED', payload: filePath });
@@ -666,10 +730,11 @@ export function FileProvider({ children, showHiddenFiles = false }: { children: 
           dispatch({ type: 'MARK_SAVED' });
         }
       } else {
-        dispatch({ type: 'SET_ERROR', payload: result.error });
+        console.error('[FileContext] saveCachedFile failed:', result.error);
+        dispatch({ type: 'SET_ERROR', payload: humanizeError(result.error) });
       }
     } catch (error) {
-      dispatch({ type: 'SET_ERROR', payload: error.message });
+      dispatch({ type: 'SET_ERROR', payload: getErrorMessage(error) });
     }
   }, [state.contentCache, state.currentFile]);
 
@@ -682,7 +747,7 @@ export function FileProvider({ children, showHiddenFiles = false }: { children: 
     dispatch({ type: 'CLEAR_ERROR' });
   }, []);
 
-  const value = {
+  const value: FileContextValue = {
     ...state,
     openDirectory,
     openDirectoryByPath,
@@ -715,7 +780,7 @@ export function FileProvider({ children, showHiddenFiles = false }: { children: 
   return <FileContext.Provider value={value}>{children}</FileContext.Provider>;
 }
 
-export function useFile() {
+export function useFile(): FileContextValue {
   const context = useContext(FileContext);
   if (!context) {
     throw new Error('useFile must be used within a FileProvider');

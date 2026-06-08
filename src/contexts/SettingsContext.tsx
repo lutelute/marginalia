@@ -1,8 +1,69 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { User, USER_COLORS, UpdateStatus } from '../types';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { User, USER_COLORS } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
-const SettingsContext = createContext(null);
+// 設定オブジェクトの型（DEFAULT_SETTINGS の構造から導出）
+type SettingsState = typeof DEFAULT_SETTINGS;
+
+// 設定の更新結果（インポート時に返る）
+interface ImportSettingsResult {
+  success: boolean;
+  error?: string;
+}
+
+// provider 内部で保持するアップデート情報（error に null も許容する）
+// 部分更新（setUpdateInfo(prev => ({ ...prev, error }))）が行われるため全フィールド任意。
+interface UpdateInfoState {
+  hasUpdate?: boolean;
+  currentVersion?: string;
+  latestVersion?: string;
+  releaseName?: string;
+  releaseUrl?: string;
+  error?: string | null;
+}
+
+// Context が提供する値の型
+export interface SettingsContextValue {
+  // 設定本体
+  settings: SettingsState;
+  updateSettings: (path: string, value: unknown) => void;
+  resetSettings: () => void;
+  // 設定モーダル
+  isSettingsOpen: boolean;
+  openSettings: () => void;
+  closeSettings: () => void;
+  // 設定の入出力
+  exportSettings: () => void;
+  importSettings: (jsonString: string) => ImportSettingsResult;
+  // アップデート確認
+  checkForUpdates: () => Promise<null>;
+  updateInfo: UpdateInfoState | null;
+  isCheckingUpdate: boolean;
+  isDevelopment: boolean;
+  appVersion: string;
+  githubRepo: string;
+  // 自動アップデート
+  updateStatus: string | null;
+  isDownloading: boolean;
+  downloadProgress: number;
+  downloadUrl: string | null | undefined;
+  downloadUpdate: () => Promise<void>;
+  installUpdate: () => Promise<void>;
+  isElectronApp: boolean;
+  // ユーザー管理
+  users: User[];
+  currentUser: User;
+  currentUserId: string;
+  addUser: (name: string, color: string) => User;
+  removeUser: (userId: string) => boolean;
+  switchUser: (userId: string) => void;
+  updateUserName: (name: string) => void;
+  updateUserColor: (color: string) => void;
+  // テーマ
+  effectiveTheme: 'dark' | 'light';
+}
+
+const SettingsContext = createContext<SettingsContextValue | null>(null);
 
 // 環境判定（ビルド時に決定）
 const IS_DEVELOPMENT = import.meta.env.DEV;
@@ -13,6 +74,32 @@ const GITHUB_REPO = 'lutelute/Marginalia';
 const isElectron = () => {
   return typeof window !== 'undefined' && window.electronAPI !== undefined;
 };
+
+// checkForUpdates が返す data の形（preload / updateManager に合わせる）
+interface UpdateCheckData {
+  available?: boolean;
+  version?: string;
+  releaseName?: string;
+  releaseUrl?: string;
+  downloadUrl?: string;
+  error?: string;
+}
+
+// アップデート関連で利用する electronAPI のサブセット
+// （src/types の ElectronAPI を変更せず、このファイル内で利用するメソッドのみ型付けする）
+interface UpdateElectronAPI {
+  checkForUpdates: () => Promise<{ success: boolean; data?: UpdateCheckData; error?: string }>;
+  downloadUpdate: (downloadUrl: string) => Promise<{ success: boolean; error?: string }>;
+  installUpdate: () => Promise<{ success: boolean; error?: string }>;
+  restartApp: () => void;
+  onUpdateProgress: (
+    callback: (data: { percent: number; downloadedMB: string; totalMB: string }) => void
+  ) => () => void;
+}
+
+// アップデート関連メソッドへ型付きでアクセスするためのヘルパー
+const updateAPI = (): UpdateElectronAPI | undefined =>
+  window.electronAPI as unknown as UpdateElectronAPI | undefined;
 
 // デフォルトユーザー
 const DEFAULT_USER: User = {
@@ -67,6 +154,7 @@ const DEFAULT_SETTINGS = {
   // ファイル表示設定
   files: {
     showHiddenFiles: false,
+    excludePatterns: ['dist', 'release', 'build', '.cache', '.next', '.nuxt', 'coverage', '.turbo'],
   },
 };
 
@@ -83,7 +171,7 @@ function deepMerge<T extends Record<string, any>>(defaults: T, saved: Partial<T>
   const result = { ...defaults };
 
   for (const key in saved) {
-    if (saved.hasOwnProperty(key)) {
+    if (Object.prototype.hasOwnProperty.call(saved, key)) {
       const savedValue = saved[key];
       const defaultValue = defaults[key];
 
@@ -96,9 +184,9 @@ function deepMerge<T extends Record<string, any>>(defaults: T, saved: Partial<T>
         !Array.isArray(savedValue) &&
         !Array.isArray(defaultValue)
       ) {
-        result[key] = deepMerge(defaultValue, savedValue);
+        result[key] = deepMerge(defaultValue, savedValue) as T[Extract<keyof T, string>];
       } else if (savedValue !== undefined) {
-        result[key] = savedValue;
+        result[key] = savedValue as T[Extract<keyof T, string>];
       }
     }
   }
@@ -106,8 +194,8 @@ function deepMerge<T extends Record<string, any>>(defaults: T, saved: Partial<T>
   return result;
 }
 
-export function SettingsProvider({ children }) {
-  const [settings, setSettings] = useState(() => {
+export function SettingsProvider({ children }: { children: ReactNode }) {
+  const [settings, setSettings] = useState<SettingsState>(() => {
     const saved = localStorage.getItem('marginalia-settings');
     if (saved) {
       try {
@@ -221,11 +309,11 @@ export function SettingsProvider({ children }) {
   }, [settings]);
 
   // 設定の更新
-  const updateSettings = useCallback((path, value) => {
+  const updateSettings = useCallback((path: string, value: unknown) => {
     setSettings((prev) => {
-      const newSettings = { ...prev };
+      const newSettings: Record<string, any> = { ...prev };
       const keys = path.split('.');
-      let current = newSettings;
+      let current: Record<string, any> = newSettings;
 
       for (let i = 0; i < keys.length - 1; i++) {
         if (!current[keys[i]]) {
@@ -236,7 +324,7 @@ export function SettingsProvider({ children }) {
       }
 
       current[keys[keys.length - 1]] = value;
-      return newSettings;
+      return newSettings as SettingsState;
     });
   }, []);
 
@@ -247,12 +335,12 @@ export function SettingsProvider({ children }) {
   }, []);
 
   // アップデート確認
-  const [updateInfo, setUpdateInfo] = useState(null);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfoState | null>(null);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
-  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [downloadUrl, setDownloadUrl] = useState<string | null | undefined>(null);
   const [isInstalling, setIsInstalling] = useState(false);
   const [isReadyToInstall, setIsReadyToInstall] = useState(false);
 
@@ -260,7 +348,7 @@ export function SettingsProvider({ children }) {
   useEffect(() => {
     if (!isElectron()) return;
 
-    const cleanup = window.electronAPI?.onUpdateProgress((data: { percent: number; downloadedMB: string; totalMB: string }) => {
+    const cleanup = updateAPI()?.onUpdateProgress((data) => {
       setDownloadProgress(data.percent);
     });
 
@@ -275,7 +363,7 @@ export function SettingsProvider({ children }) {
     setIsCheckingUpdate(true);
     setUpdateStatus('checking');
     try {
-      const result = await window.electronAPI?.checkForUpdates();
+      const result = await updateAPI()?.checkForUpdates();
 
       if (result?.success && result.data) {
         const data = result.data;
@@ -340,7 +428,7 @@ export function SettingsProvider({ children }) {
     setUpdateStatus('downloading');
 
     try {
-      const result = await window.electronAPI?.downloadUpdate(downloadUrl);
+      const result = await updateAPI()?.downloadUpdate(downloadUrl);
       if (result?.success) {
         setIsDownloading(false);
         setDownloadProgress(100);
@@ -372,12 +460,12 @@ export function SettingsProvider({ children }) {
     setUpdateStatus('installing');
 
     try {
-      const result = await window.electronAPI?.installUpdate();
+      const result = await updateAPI()?.installUpdate();
       if (result?.success) {
         // インストール成功、再起動が必要
         setUpdateStatus('installed');
         // 自動で再起動
-        window.electronAPI?.restartApp();
+        updateAPI()?.restartApp();
       } else {
         setIsInstalling(false);
         setUpdateInfo(prev => ({
@@ -413,17 +501,17 @@ export function SettingsProvider({ children }) {
   }, [settings]);
 
   // 設定のインポート
-  const importSettings = useCallback((jsonString) => {
+  const importSettings = useCallback((jsonString: string): ImportSettingsResult => {
     try {
       const imported = JSON.parse(jsonString);
       setSettings(deepMerge(DEFAULT_SETTINGS, imported));
       return { success: true };
     } catch (e) {
-      return { success: false, error: e.message };
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }, []);
 
-  const value = {
+  const value: SettingsContextValue = {
     settings,
     updateSettings,
     resetSettings,
@@ -466,7 +554,7 @@ export function SettingsProvider({ children }) {
   );
 }
 
-export function useSettings() {
+export function useSettings(): SettingsContextValue {
   const context = useContext(SettingsContext);
   if (!context) {
     throw new Error('useSettings must be used within a SettingsProvider');

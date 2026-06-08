@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useBuild } from '../../contexts/BuildContext';
 import { useTab } from '../../contexts/TabContext';
-import { useAppState } from '../../App';
+import { useAppState } from '../../contexts/AppStateContext';
 
 /** マニフェスト名 + フォーマットから出力パスを算出 */
 function getOutputPath(projectDir: string, manifestPath: string, fmt: string) {

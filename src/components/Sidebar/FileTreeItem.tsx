@@ -2,8 +2,19 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useFile } from '../../contexts/FileContext';
 import { useTab } from '../../contexts/TabContext';
 
-function FileTreeItem({ item, depth }) {
-  const [isExpanded, setIsExpanded] = useState(true);
+interface FileTreeItemNode {
+  name: string;
+  path: string;
+  isDirectory?: boolean;
+  isHidden?: boolean;
+  isSystem?: boolean;
+  annotationCount?: number;
+  children?: FileTreeItemNode[];
+}
+
+function FileTreeItem({ item, depth }: { item: FileTreeItemNode; depth: number }) {
+  // ルート直下（depth=0）のみ初期展開、それ以下は折りたたみ
+  const [isExpanded, setIsExpanded] = useState(depth === 0);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
@@ -127,7 +138,7 @@ function FileTreeItem({ item, depth }) {
             {item.isSystem && (
               <span className="system-badge" title="システムファイル">SYS</span>
             )}
-            {!item.isDirectory && item.annotationCount > 0 && (
+            {!item.isDirectory && (item.annotationCount ?? 0) > 0 && (
               <span className="annotation-badge" title={`${item.annotationCount}件の注釈`}>
                 {item.annotationCount}
               </span>

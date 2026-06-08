@@ -4,6 +4,79 @@ export type EditorMode = 'edit' | 'split' | 'preview';
 // Tab Types
 export type { Tab, EditorGroup, TabLayout, FileContentCache } from './tabs';
 
+import type { FileContentCache } from './tabs';
+
+// ---------------------------------------------------------------------------
+// FileContext (src/contexts/FileContext.tsx) の型
+// ---------------------------------------------------------------------------
+
+// reducer が管理する状態
+export interface FileState {
+  rootPath: string | null;
+  fileTree: FileTreeNode[];
+  currentFile: string | null;
+  content: string;
+  originalContent: string;
+  isModified: boolean;
+  isLoading: boolean;
+  error: string | null;
+  externalChangeDetected: boolean;
+  lastKnownMtime: string | null;
+  orphanedFiles: OrphanedFileData[];
+  contentCache: Record<string, FileContentCache>;
+}
+
+// reducer に渡される action (discriminated union)
+export type FileAction =
+  | { type: 'SET_ROOT_PATH'; payload: string | null }
+  | { type: 'SET_FILE_TREE'; payload: FileTreeNode[] }
+  | { type: 'SET_CURRENT_FILE'; payload: string | null }
+  | { type: 'SET_CONTENT'; payload: { content: string; original?: string; mtime?: string | null } }
+  | { type: 'UPDATE_CONTENT'; payload: string }
+  | { type: 'MARK_SAVED' }
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_ERROR'; payload: string | null }
+  | { type: 'CLEAR_ERROR' }
+  | { type: 'EXTERNAL_CHANGE_DETECTED' }
+  | { type: 'CLEAR_EXTERNAL_CHANGE' }
+  | { type: 'UPDATE_MTIME'; payload: string | null }
+  | { type: 'SET_ORPHANED_FILES'; payload: OrphanedFileData[] }
+  | { type: 'REMOVE_ORPHANED_FILE'; payload: string }
+  | { type: 'CACHE_FILE_CONTENT'; payload: { filePath: string; content: string; mtime?: string | null } }
+  | { type: 'UPDATE_CACHED_CONTENT'; payload: { filePath: string; content: string } }
+  | { type: 'MARK_CACHED_SAVED'; payload: string }
+  | { type: 'EVICT_CACHE'; payload: string };
+
+// useFile() が返す値（state を spread した上にメソッド群を加えたもの）
+export interface FileContextValue extends FileState {
+  openDirectory: () => Promise<void>;
+  openDirectoryByPath: (dirPath: string) => Promise<void>;
+  refreshDirectory: () => Promise<void>;
+  openFile: (filePath: string) => Promise<void>;
+  updateContent: (content: string) => void;
+  saveFile: () => Promise<void>;
+  clearError: () => void;
+  recentFolders: string[];
+  clearRecentFolders: () => void;
+  fileMetadata: FileStats | null;
+  loadFileMetadata: (filePath: string) => Promise<void>;
+  checkExternalChange: () => Promise<boolean>;
+  reloadFile: () => Promise<void>;
+  clearExternalChange: () => void;
+  // ファイル操作
+  closeFile: (filePath: string) => void;
+  loadFileToCache: (filePath: string) => Promise<void>;
+  updateCachedContent: (filePath: string, newContent: string) => void;
+  saveCachedFile: (filePath: string) => Promise<void>;
+  renameFileWithAnnotations: (filePath: string, newName: string) => Promise<FileOperationResult>;
+  moveFileWithAnnotations: (oldPath: string, newPath: string) => Promise<FileOperationResult>;
+  // 孤立ファイル管理
+  detectOrphanedFiles: (dirPath: string) => Promise<void>;
+  exportOrphanedFile: (orphanedFile: OrphanedFileData) => void;
+  reassignOrphanedFile: (orphanedFile: OrphanedFileData, newFilePath: string) => Promise<FileOperationResult>;
+  deleteOrphanedFile: (orphanedFile: OrphanedFileData) => Promise<FileOperationResult>;
+}
+
 // Toast Types
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -64,6 +137,13 @@ export interface OrphanedFileData {
   history: any[];
 }
 
+// File operation result (rename/move/reassign/delete 等の戻り値)
+export interface FileOperationResult {
+  success: boolean;
+  error?: string;
+  newPath?: string;
+}
+
 export interface AnnotationFilter {
   status: 'resolved' | 'unresolved' | null;
   types: ('comment' | 'review' | 'pending' | 'discussion')[];
@@ -80,12 +160,50 @@ export interface FileTreeNode {
   children?: FileTreeNode[];
 }
 
-export interface BackupInfo {
-  path: string;
-  name: string;
-  timestamp: string;
-  size: number;
+export interface FileStats {
+  fileName?: string;
+  filePath?: string;
+  size?: number;
+  sizeFormatted?: string;
+  created?: string;
+  modified?: string;
+  mtime?: string;
+  lines?: number;
+  words?: number;
+  chars?: number;
+  [key: string]: unknown;
 }
+
+export interface BackupInfo {
+  id: string;
+  path: string;
+  fileName: string;
+  createdAt: string;
+  /** ファイルバックアップ（listBackups）にのみ存在 */
+  size?: number;
+  /** 注釈バックアップ（listMarginaliaBackups）にのみ存在 */
+  annotationCount?: number;
+}
+
+export type BackupListResult =
+  | { success: true; backups: BackupInfo[] }
+  | { success: false; error: string };
+
+export type PreviewBackupResult =
+  | { success: true; content: string; createdAt: string; fileName: string }
+  | { success: false; error: string };
+
+export type RestoreBackupResult =
+  | { success: true; content: string }
+  | { success: false; error: string };
+
+export type RestoreMarginaliaBackupResult =
+  | { success: true; data: unknown }
+  | { success: false; error: string };
+
+export type CreateBackupResult =
+  | { success: true; backupPath: string }
+  | { success: false; error: string };
 
 // Settings Types
 export interface EditorSettings {
@@ -158,24 +276,31 @@ export type UpdateStatus =
 // Electron API Types
 export interface ReadDirectoryOptions {
   showHidden?: boolean;
+  systemDirs?: string[];
 }
 
 export interface ElectronAPI {
   openDirectory: () => Promise<string | null>;
   readDirectory: (path: string, options?: ReadDirectoryOptions) => Promise<FileTreeNode[]>;
-  readFile: (path: string) => Promise<string>;
-  writeFile: (path: string, content: string) => Promise<boolean>;
-  readMarginalia: (path: string) => Promise<{ annotations: any[]; history: any[]; needsMigration?: boolean; _version?: string } | null>;
+  readFile: (path: string) => Promise<{ success: boolean; content?: string; error?: string }>;
+  writeFile: (path: string, content: string) => Promise<{ success: boolean; error?: string }>;
+  readMarginalia: (path: string) => Promise<{ success: boolean; data?: { lastModified?: string; annotations?: any[]; history?: any[]; [key: string]: unknown }; needsMigration?: boolean; error?: string } | null>;
   writeMarginalia: (path: string, data: any) => Promise<boolean>;
   exists: (path: string) => Promise<boolean>;
-  listBackups: (path: string) => Promise<BackupInfo[]>;
-  restoreBackup: (backupPath: string, targetPath: string) => Promise<boolean>;
-  previewBackup: (backupPath: string) => Promise<string>;
-  deleteBackup: (backupPath: string) => Promise<boolean>;
-  createBackup: (path: string) => Promise<string | null>;
-  getFileStats: (path: string) => Promise<{ mtime: string; size: number } | null>;
-  listMarginaliaBackups: (path: string) => Promise<BackupInfo[]>;
-  restoreMarginaliaBackup: (backupPath: string, filePath: string) => Promise<boolean>;
+  listBackups: (path: string) => Promise<BackupListResult>;
+  restoreBackup: (backupPath: string, targetPath: string) => Promise<RestoreBackupResult>;
+  previewBackup: (backupPath: string) => Promise<PreviewBackupResult>;
+  deleteBackup: (backupPath: string) => Promise<{ success: boolean; error?: string }>;
+  renameFile: (filePath: string, newName: string) => Promise<{ success: boolean; newPath?: string; error?: string }>;
+  moveFile: (oldPath: string, newPath: string) => Promise<{ success: boolean; newPath?: string; error?: string }>;
+  createBackup: (path: string) => Promise<CreateBackupResult>;
+  getFileStats: (path: string) => Promise<{ success: boolean; stats?: FileStats; error?: string } | null>;
+  // 開いているファイルの外部変更監視
+  watchFile: (filePath: string) => Promise<{ success: boolean; error?: string }>;
+  unwatchFile: () => Promise<{ success: boolean; error?: string }>;
+  onFileChangedExternally: (callback: (filePath: string) => void) => () => void;
+  listMarginaliaBackups: (path: string) => Promise<BackupListResult>;
+  restoreMarginaliaBackup: (backupPath: string, filePath: string) => Promise<RestoreMarginaliaBackupResult>;
   // アップデート関連
   checkForUpdates: () => Promise<{ success: boolean; data?: unknown; error?: string }>;
   downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
@@ -190,6 +315,7 @@ export interface ElectronAPI {
   onTerminalData: (sessionId: string, callback: (data: string) => void) => () => void;
   onTerminalExit: (sessionId: string, callback: (exitCode: number, signal: number) => void) => () => void;
   onNewTerminal: (callback: () => void) => () => void;
+  onCloseActiveTab: (callback: () => void) => () => void;
   // BibTeX ファイル
   listBibFiles: (dirPath: string) => Promise<{ success: boolean; files: { path: string; content: string }[]; error?: string }>;
   // ビルドシステム関連
@@ -315,9 +441,36 @@ export interface ProjectDetectionResult {
   projectDir: string | null;
 }
 
+// ---------------------------------------------------------------------------
+// AppStateContext (src/App.tsx) の型
+// ---------------------------------------------------------------------------
+
+export interface AppStateContextValue {
+  isSidebarOpen: boolean;
+  editorMode: EditorMode;
+  isAnnotationPanelOpen: boolean;
+  explorerCollapsed: boolean;
+  buildCollapsed: boolean;
+  galleryCollapsed: boolean;
+  sidebarSplitRatio: number;
+  viewingPdf: string | null;
+  isGalleryModalOpen: boolean;
+  toggleSidebar: () => void;
+  setEditorMode: (mode: EditorMode) => void;
+  toggleAnnotationPanel: () => void;
+  toggleExplorer: () => void;
+  toggleBuild: () => void;
+  toggleGallery: () => void;
+  setSidebarSplitRatio: (ratio: number) => void;
+  setViewingPdf: (path: string | null) => void;
+  openGalleryModal: () => void;
+  closeGalleryModal: () => void;
+}
+
 declare global {
   interface Window {
     electron?: ElectronAPI;
-    electronAPI?: ElectronAPI;
+    // preload.js が必ず注入するため non-optional として扱う
+    electronAPI: ElectronAPI;
   }
 }

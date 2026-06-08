@@ -47,18 +47,18 @@ function SettingsPanel() {
   // 新規ユーザー追加フォーム
   const [showAddUser, setShowAddUser] = useState(false);
   const [newUserName, setNewUserName] = useState('');
-  const [newUserColor, setNewUserColor] = useState(USER_COLORS[0]);
+  const [newUserColor, setNewUserColor] = useState<(typeof USER_COLORS)[number]>(USER_COLORS[0]);
 
   const [activeTab, setActiveTab] = useState('general');
-  const fileInputRef = useRef(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImport = (e) => {
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const result = importSettings(event.target.result);
+      const result = importSettings((event.target?.result as string) ?? '');
       if (!result.success) {
         alert('設定のインポートに失敗しました: ' + result.error);
       }

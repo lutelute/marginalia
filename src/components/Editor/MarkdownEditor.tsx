@@ -1,35 +1,31 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { EditorState } from '@codemirror/state';
-import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection } from '@codemirror/view';
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
-import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
-import { languages } from '@codemirror/language-data';
-import { syntaxHighlighting, HighlightStyle } from '@codemirror/language';
-import { linter, lintGutter, Diagnostic } from '@codemirror/lint';
-import { tags } from '@lezer/highlight';
-import { Compartment } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
 import { useFile } from '../../contexts/FileContext';
 import { useAnnotation } from '../../contexts/AnnotationContext';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useBuild } from '../../contexts/BuildContext';
 import { createMarkdownCompletions } from '../../codemirror/completions';
 import {
-  annotationField,
-  flashHighlightField,
   dispatchAnnotations,
   dispatchFlashHighlight,
   findAnnotationPositionInDoc,
 } from './annotationDecorations';
-import { createSelectorsFromEditorSelection, getAnnotationExactText, getEditorPosition } from '../../utils/selectorUtils';
-import { AnnotationV2, PendingSelectionV2 } from '../../types/annotations';
+import { createSelectorsFromEditorSelection, getEditorPosition } from '../../utils/selectorUtils';
+import { AnnotationV2, PendingSelectionV2, AnnotationType } from '../../types/annotations';
 import {
   getEditorVisibleLine,
   getEditorVisibleRange,
   scrollEditorToLine,
-  cancelScrollSync,
 } from '../../utils/scrollSync';
 import Minimap from './Minimap';
 import AnnotationHoverCard from '../Annotations/AnnotationHoverCard';
+import { TOOLBAR_ITEMS, ToolbarItem } from './editorToolbar';
+import { completionCompartment, buildEditorExtensions } from './editorSetup';
+import { embedAnnotationsToMarkdown, generateHTMLWithAnnotations } from './exportUtils';
+import EditorSelectionPopup from './EditorSelectionPopup';
+import EditorAnnotationForm from './EditorAnnotationForm';
+import { EDITOR_EMPTY_STYLES, MARKDOWN_EDITOR_STYLES } from './editorStyles';
 
 // EditorViewを外部と共有するためのContext
 export const EditorViewContext = React.createContext<{
@@ -41,447 +37,6 @@ export const EditorViewContext = React.createContext<{
 
 export function useEditorView() {
   return React.useContext(EditorViewContext);
-}
-
-// Markdownシンタックスハイライト（カラフル版）
-const markdownHighlightStyle = HighlightStyle.define([
-  // 見出し - シアン/ブルー系
-  { tag: tags.heading1, color: '#61afef', fontWeight: 'bold', fontSize: '1.4em' },
-  { tag: tags.heading2, color: '#56b6c2', fontWeight: 'bold', fontSize: '1.25em' },
-  { tag: tags.heading3, color: '#98c379', fontWeight: 'bold', fontSize: '1.1em' },
-  { tag: tags.heading4, color: '#e5c07b', fontWeight: 'bold' },
-  { tag: tags.heading5, color: '#d19a66', fontWeight: 'bold' },
-  { tag: tags.heading6, color: '#c678dd', fontWeight: 'bold' },
-  // 強調
-  { tag: tags.strong, color: '#e5c07b', fontWeight: 'bold' },
-  { tag: tags.emphasis, color: '#c678dd', fontStyle: 'italic' },
-  { tag: tags.strikethrough, color: '#5c6370', textDecoration: 'line-through' },
-  // リンク
-  { tag: tags.link, color: '#61afef', textDecoration: 'underline' },
-  { tag: tags.url, color: '#56b6c2' },
-  // コード
-  { tag: tags.monospace, color: '#98c379', backgroundColor: 'rgba(152, 195, 121, 0.1)' },
-  // 引用
-  { tag: tags.quote, color: '#5c6370', fontStyle: 'italic' },
-  // リスト
-  { tag: tags.list, color: '#e06c75' },
-  // コメント（HTML）
-  { tag: tags.comment, color: '#5c6370', fontStyle: 'italic' },
-  // メタ情報（---など）
-  { tag: tags.meta, color: '#c678dd' },
-  { tag: tags.processingInstruction, color: '#c678dd' },
-  // 特殊文字
-  { tag: tags.special(tags.string), color: '#98c379' },
-  // 区切り線
-  { tag: tags.contentSeparator, color: '#5c6370' },
-]);
-
-const theme = EditorView.theme({
-  '&': {
-    height: '100%',
-    fontSize: '14px',
-  },
-  '.cm-scroller': {
-    fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-    overflow: 'auto',
-  },
-  '.cm-content': {
-    padding: '16px 0',
-  },
-  '.cm-gutters': {
-    backgroundColor: 'var(--bg-secondary)',
-    color: 'var(--text-muted)',
-    border: 'none',
-    paddingRight: '8px',
-  },
-  '.cm-activeLineGutter': {
-    backgroundColor: 'var(--bg-tertiary)',
-  },
-  '.cm-activeLine': {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  '.cm-selectionBackground': {
-    backgroundColor: 'rgba(0, 120, 212, 0.3) !important',
-  },
-  '&.cm-focused .cm-selectionBackground': {
-    backgroundColor: 'rgba(0, 120, 212, 0.5) !important',
-  },
-  '.cm-cursor, .cm-cursor-primary': {
-    borderLeftColor: 'var(--accent-color)',
-    borderLeftWidth: '2px',
-  },
-  '&.cm-focused': {
-    outline: 'none',
-  },
-  '.cm-line': {
-    padding: '0 16px',
-  },
-  // オートコンプリートパネルのスタイル
-  '.cm-tooltip-autocomplete': {
-    backgroundColor: 'var(--bg-secondary) !important',
-    border: '1px solid var(--border-color) !important',
-    borderRadius: '6px',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-  },
-  '.cm-tooltip-autocomplete ul li': {
-    color: 'var(--text-primary)',
-    padding: '2px 8px',
-  },
-  '.cm-tooltip-autocomplete ul li[aria-selected]': {
-    backgroundColor: 'var(--accent-color) !important',
-    color: 'white',
-  },
-  '.cm-completionLabel': {
-    fontSize: '13px',
-  },
-  '.cm-completionDetail': {
-    fontSize: '11px',
-    color: 'var(--text-muted)',
-    fontStyle: 'italic',
-  },
-});
-
-const darkTheme = EditorView.theme({
-  '&': {
-    backgroundColor: 'var(--bg-primary)',
-    color: 'var(--text-primary)',
-  },
-}, { dark: true });
-
-// Markdown Lint
-const markdownLinter = linter((view) => {
-  const diagnostics: Diagnostic[] = [];
-  const doc = view.state.doc;
-  const text = doc.toString();
-  const lines = text.split('\n');
-
-  let inCodeFence = false;
-  let codeFenceStart = -1;
-  let lastHeadingLevel = 0;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmed = line.trimStart();
-
-    // コードフェンス検出
-    if (trimmed.startsWith('```')) {
-      if (!inCodeFence) {
-        inCodeFence = true;
-        codeFenceStart = i;
-      } else {
-        inCodeFence = false;
-        codeFenceStart = -1;
-      }
-      continue;
-    }
-
-    // コードフェンス内はスキップ
-    if (inCodeFence) continue;
-
-    // 見出しレベルの飛び検出
-    const headingMatch = trimmed.match(/^(#{1,6})\s/);
-    if (headingMatch) {
-      const level = headingMatch[1].length;
-      if (lastHeadingLevel > 0 && level > lastHeadingLevel + 1) {
-        const docLine = doc.line(i + 1);
-        diagnostics.push({
-          from: docLine.from,
-          to: docLine.from + headingMatch[0].length,
-          severity: 'warning',
-          message: `見出しレベルが h${lastHeadingLevel} から h${level} に飛んでいます`,
-        });
-      }
-      lastHeadingLevel = level;
-    }
-
-    // 空リンク検出
-    const emptyLinkRe = /\[([^\]]*)\]\(\s*\)/g;
-    let match;
-    while ((match = emptyLinkRe.exec(line)) !== null) {
-      const docLine = doc.line(i + 1);
-      diagnostics.push({
-        from: docLine.from + match.index,
-        to: docLine.from + match.index + match[0].length,
-        severity: 'warning',
-        message: 'リンク先が空です',
-      });
-    }
-  }
-
-  // 閉じられていないコードフェンス
-  if (inCodeFence && codeFenceStart >= 0) {
-    const docLine = doc.line(codeFenceStart + 1);
-    diagnostics.push({
-      from: docLine.from,
-      to: docLine.to,
-      severity: 'error',
-      message: 'コードフェンスが閉じられていません',
-    });
-  }
-
-  return diagnostics;
-});
-
-// ツールバーのボタン定義
-const TOOLBAR_ITEMS = [
-  { id: 'bold', label: '太字', icon: 'B', before: '**', after: '**', shortcut: 'Cmd+B' },
-  { id: 'italic', label: '斜体', icon: 'I', before: '*', after: '*', shortcut: 'Cmd+I' },
-  { id: 'strike', label: '取消線', icon: 'S', before: '~~', after: '~~' },
-  { id: 'divider1' },
-  { id: 'h1', label: '見出し1', icon: 'H1', before: '# ', after: '', line: true },
-  { id: 'h2', label: '見出し2', icon: 'H2', before: '## ', after: '', line: true },
-  { id: 'h3', label: '見出し3', icon: 'H3', before: '### ', after: '', line: true },
-  { id: 'divider2' },
-  { id: 'ul', label: '箇条書き', icon: '•', before: '- ', after: '', line: true },
-  { id: 'ol', label: '番号リスト', icon: '1.', before: '1. ', after: '', line: true },
-  { id: 'task', label: 'タスク', icon: '☑', before: '- [ ] ', after: '', line: true },
-  { id: 'divider3' },
-  { id: 'quote', label: '引用', icon: '"', before: '> ', after: '', line: true },
-  { id: 'code', label: 'コード', icon: '<>', before: '`', after: '`' },
-  { id: 'codeblock', label: 'コードブロック', icon: '{ }', before: '```\n', after: '\n```', block: true },
-  { id: 'divider4' },
-  { id: 'link', label: 'リンク', icon: '🔗', before: '[', after: '](url)' },
-  { id: 'image', label: '画像', icon: '🖼', before: '![alt](', after: ')' },
-  { id: 'table', label: '表', icon: '⊞', template: '| 列1 | 列2 | 列3 |\n|-----|-----|-----|\n| A | B | C |\n' },
-  { id: 'divider5' },
-  { id: 'math', label: '数式', icon: '∑', before: '$', after: '$' },
-  { id: 'mathblock', label: '数式ブロック', icon: '∫', before: '$$\n', after: '\n$$', block: true },
-  { id: 'color', label: '色', icon: '🎨', before: '<span style="color: red">', after: '</span>' },
-];
-
-const ANNOTATION_TYPES = [
-  { id: 'comment', label: 'コメント', icon: '💬', color: 'var(--comment-color)' },
-  { id: 'review', label: '校閲', icon: '✏️', color: 'var(--review-color)' },
-  { id: 'pending', label: '保留', icon: '⏳', color: 'var(--pending-color)' },
-  { id: 'discussion', label: '議論', icon: '💭', color: 'var(--discussion-color)' },
-];
-
-function EditorSelectionPopup({ position, onSelect, onClose }) {
-  const popupRef = useRef(null);
-  const [isReady, setIsReady] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setIsReady(true), 150);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    if (!isReady) return;
-
-    const handleClickOutside = (e) => {
-      if (popupRef.current && !popupRef.current.contains(e.target)) {
-        onClose();
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [onClose, isReady]);
-
-  return (
-    <div
-      ref={popupRef}
-      className="editor-selection-popup"
-      style={{ top: position.y, left: position.x }}
-    >
-      {ANNOTATION_TYPES.map((type) => (
-        <button
-          key={type.id}
-          className="popup-btn"
-          style={{ '--btn-color': type.color }}
-          onClick={() => onSelect(type.id)}
-          title={type.label}
-        >
-          <span className="popup-icon">{type.icon}</span>
-          <span className="popup-label">{type.label}</span>
-        </button>
-      ))}
-
-      <style>{`
-        .editor-selection-popup {
-          position: absolute;
-          display: flex;
-          gap: 8px;
-          padding: 12px;
-          background-color: var(--bg-secondary);
-          border: 1px solid var(--border-color);
-          border-radius: 12px;
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-          z-index: 100;
-          transform: translateX(-50%);
-          animation: popupFadeIn 0.15s ease-out;
-        }
-
-        @keyframes popupFadeIn {
-          from {
-            opacity: 0;
-            transform: translateX(-50%) translateY(-4px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-          }
-        }
-
-        .editor-selection-popup .popup-btn {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 6px;
-          padding: 14px 18px;
-          border-radius: 10px;
-          transition: all 0.2s;
-          min-width: 70px;
-        }
-
-        .editor-selection-popup .popup-btn:hover {
-          background-color: var(--btn-color);
-          color: white;
-          transform: scale(1.05);
-        }
-
-        .editor-selection-popup .popup-icon {
-          font-size: 24px;
-        }
-
-        .editor-selection-popup .popup-label {
-          font-size: 12px;
-          font-weight: 500;
-          color: var(--text-secondary);
-        }
-
-        .editor-selection-popup .popup-btn:hover .popup-label {
-          color: white;
-        }
-      `}</style>
-    </div>
-  );
-}
-
-function EditorAnnotationForm({ type, selectedText, onSubmit, onCancel }) {
-  const [content, setContent] = useState('');
-  const typeInfo = ANNOTATION_TYPES.find((t) => t.id === type);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (content.trim()) {
-      onSubmit(content);
-    }
-  };
-
-  return (
-    <div className="editor-annotation-form-overlay">
-      <form className="editor-annotation-form" onSubmit={handleSubmit}>
-        <div className="form-header">
-          <span className="form-type" style={{ backgroundColor: typeInfo?.color }}>
-            {typeInfo?.icon} {typeInfo?.label}
-          </span>
-        </div>
-        <div className="form-selected-text">
-          "{selectedText.slice(0, 100)}{selectedText.length > 100 ? '...' : ''}"
-        </div>
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="注釈を入力..."
-          rows={4}
-          autoFocus
-        />
-        <div className="form-actions">
-          <button type="button" className="cancel-btn" onClick={onCancel}>
-            キャンセル
-          </button>
-          <button type="submit" className="submit-btn" disabled={!content.trim()}>
-            追加
-          </button>
-        </div>
-      </form>
-
-      <style>{`
-        .editor-annotation-form-overlay {
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-color: rgba(0, 0, 0, 0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 200;
-        }
-
-        .editor-annotation-form {
-          width: 90%;
-          max-width: 400px;
-          background-color: var(--bg-secondary);
-          border-radius: 8px;
-          padding: 16px;
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-        }
-
-        .editor-annotation-form .form-header {
-          margin-bottom: 12px;
-        }
-
-        .editor-annotation-form .form-type {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 4px 10px;
-          border-radius: 4px;
-          font-size: 12px;
-          color: white;
-        }
-
-        .editor-annotation-form .form-selected-text {
-          padding: 8px 12px;
-          background-color: var(--bg-tertiary);
-          border-radius: 4px;
-          font-size: 12px;
-          color: var(--text-secondary);
-          font-style: italic;
-          margin-bottom: 12px;
-          max-height: 60px;
-          overflow-y: auto;
-        }
-
-        .editor-annotation-form textarea {
-          width: 100%;
-          margin-bottom: 12px;
-          min-height: 80px;
-        }
-
-        .editor-annotation-form .form-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 8px;
-        }
-
-        .editor-annotation-form .cancel-btn {
-          padding: 8px 16px;
-          border-radius: 4px;
-          font-size: 13px;
-          color: var(--text-secondary);
-        }
-
-        .editor-annotation-form .cancel-btn:hover {
-          background-color: var(--bg-hover);
-        }
-
-        .editor-annotation-form .submit-btn {
-          padding: 8px 16px;
-          border-radius: 4px;
-          font-size: 13px;
-          background-color: var(--accent-color);
-          color: white;
-        }
-
-        .editor-annotation-form .submit-btn:hover:not(:disabled) {
-          background-color: var(--accent-hover);
-        }
-      `}</style>
-    </div>
-  );
 }
 
 // スクロール同期コールバック用の型
@@ -522,11 +77,8 @@ export function triggerScrollSync(line: number) {
   }
 }
 
-// オートコンプリート用の Compartment (動的再設定用)
-const completionCompartment = new Compartment();
-
 function MarkdownEditor({ compact }: { compact?: boolean }) {
-  const editorRef = useRef(null);
+  const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const { content, currentFile, updateContent, saveFile, isModified, fileMetadata, loadFileMetadata } = useFile();
   const { setPendingSelection, annotations, scrollToLine, clearScrollToLine, addAnnotation, selectAnnotation, updateAnnotation, resolveAnnotation, deleteAnnotation, addReply, scrollToEditorLine } = useAnnotation();
@@ -534,10 +86,10 @@ function MarkdownEditor({ compact }: { compact?: boolean }) {
   const { catalog, sourceFiles, bibEntries } = useBuild();
   const [showMetadata, setShowMetadata] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
-  const [editorSelection, setEditorSelection] = useState(null);
-  const [popupPosition, setPopupPosition] = useState(null);
+  const [editorSelection, setEditorSelection] = useState<(PendingSelectionV2 & { text: string }) | null>(null);
+  const [popupPosition, setPopupPosition] = useState<{ x: number; y: number } | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [formType, setFormType] = useState(null);
+  const [formType, setFormType] = useState<AnnotationType | null>(null);
 
   // ミニマップ用の状態
   const [visibleRange, setVisibleRange] = useState({ startLine: 1, endLine: 1 });
@@ -549,7 +101,7 @@ function MarkdownEditor({ compact }: { compact?: boolean }) {
 
   // 注釈ホバーカード用の状態
   const [hoveredAnnotation, setHoveredAnnotation] = useState<{
-    annotation: any;
+    annotation: AnnotationV2;
     position: { x: number; y: number };
   } | null>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -648,34 +200,12 @@ function MarkdownEditor({ compact }: { compact?: boolean }) {
 
     const state = EditorState.create({
       doc: content,
-      extensions: [
-        lineNumbers(),
-        highlightActiveLine(),
-        highlightActiveLineGutter(),
-        drawSelection({ cursorBlinkRate: 530 }),
-        history(),
-        markdown({ base: markdownLanguage, codeLanguages: languages }),
-        syntaxHighlighting(markdownHighlightStyle),
-        keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap]),
-        theme,
-        darkTheme,
+      extensions: buildEditorExtensions({
+        catalog,
+        sourceFiles,
+        bibEntries,
         updateListener,
-        EditorView.lineWrapping,
-        // 注釈ハイライト用StateField
-        annotationField,
-        flashHighlightField,
-        // Markdown lint
-        markdownLinter,
-        lintGutter(),
-        // オートコンプリート
-        completionCompartment.of(createMarkdownCompletions({
-          catalog,
-          sourceFiles,
-          fileTree: sourceFiles,
-          bibEntries: bibEntries || [],
-          crossRefLabels: [],
-        })),
-      ],
+      }),
     });
 
     const view = new EditorView({
@@ -943,14 +473,14 @@ function MarkdownEditor({ compact }: { compact?: boolean }) {
   }, [setPendingSelection]);
 
   // ポップアップで注釈タイプを選択
-  const handleSelectType = useCallback((type) => {
+  const handleSelectType = useCallback((type: AnnotationType) => {
     setFormType(type);
     setShowForm(true);
     setPopupPosition(null);
   }, []);
 
   // 注釈追加フォームの送信
-  const handleAddAnnotation = useCallback((content) => {
+  const handleAddAnnotation = useCallback((content: string) => {
     if (editorSelection && formType) {
       addAnnotation(formType, content, editorSelection);
     }
@@ -974,7 +504,7 @@ function MarkdownEditor({ compact }: { compact?: boolean }) {
 
   // 保存のキーボードショートカット
   useEffect(() => {
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault();
         saveFile();
@@ -996,7 +526,7 @@ function MarkdownEditor({ compact }: { compact?: boolean }) {
   }, [saveFile]);
 
   // ツールバーのフォーマット適用
-  const applyFormat = useCallback((item) => {
+  const applyFormat = useCallback((item: ToolbarItem | undefined) => {
     if (!viewRef.current || !item) return;
 
     const view = viewRef.current;
@@ -1024,11 +554,12 @@ function MarkdownEditor({ compact }: { compact?: boolean }) {
       });
     } else {
       // 選択テキストを囲む
+      const before = item.before ?? '';
       const selectedText = doc.sliceString(selection.from, selection.to) || 'テキスト';
-      const newText = item.before + selectedText + item.after;
+      const newText = before + selectedText + item.after;
       view.dispatch({
         changes: { from: selection.from, to: selection.to, insert: newText },
-        selection: { anchor: selection.from + item.before.length, head: selection.from + item.before.length + selectedText.length },
+        selection: { anchor: selection.from + before.length, head: selection.from + before.length + selectedText.length },
       });
     }
 
@@ -1036,7 +567,7 @@ function MarkdownEditor({ compact }: { compact?: boolean }) {
   }, []);
 
   // エクスポート機能
-  const handleExport = useCallback((format) => {
+  const handleExport = useCallback((format: 'md' | 'md-styled' | 'html') => {
     if (!content) return;
 
     let exportContent = content;
@@ -1045,7 +576,7 @@ function MarkdownEditor({ compact }: { compact?: boolean }) {
 
     if (format === 'html') {
       // 注釈をHTMLスタイルとして埋め込む
-      exportContent = generateHTMLWithAnnotations(content, annotations);
+      exportContent = generateHTMLWithAnnotations(content, annotations, currentFile);
       fileName = fileName.replace('.md', '.html');
       mimeType = 'text/html';
     } else if (format === 'md-styled') {
@@ -1063,82 +594,16 @@ function MarkdownEditor({ compact }: { compact?: boolean }) {
     setShowExportMenu(false);
   }, [content, currentFile, annotations]);
 
-  // 注釈をMarkdownに埋め込む（V2対応）
-  const embedAnnotationsToMarkdown = (md, annots) => {
-    let result = md;
-    const unresolvedAnnots = annots.filter(a => a.status === 'active');
-
-    // V2: TextQuoteSelectorのexactを使用
-    const sorted = [...unresolvedAnnots].sort((a, b) => {
-      const aText = getAnnotationExactText(a);
-      const bText = getAnnotationExactText(b);
-      return (bText?.length || 0) - (aText?.length || 0);
-    });
-
-    for (const annot of sorted) {
-      const selectedText = getAnnotationExactText(annot);
-      if (!selectedText) continue;
-      const color = getAnnotationColor(annot.type);
-      const styledText = `<mark style="background-color: ${color}; padding: 2px 4px;" title="${annot.type}: ${annot.content.replace(/"/g, '&quot;')}">${selectedText}</mark>`;
-      result = result.replace(selectedText, styledText);
-    }
-
-    return result;
-  };
-
-  // HTMLとして注釈付きでエクスポート
-  const generateHTMLWithAnnotations = (md, annots) => {
-    const styledMd = embedAnnotationsToMarkdown(md, annots);
-    return `<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${currentFile?.split('/').pop() || 'Document'}</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
-    pre { background: #f5f5f5; padding: 16px; border-radius: 6px; overflow-x: auto; }
-    code { font-family: Menlo, Monaco, monospace; background: #f5f5f5; padding: 2px 4px; border-radius: 3px; }
-    blockquote { border-left: 4px solid #ddd; margin: 0; padding-left: 16px; color: #666; }
-    table { border-collapse: collapse; width: 100%; } th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    mark { border-radius: 3px; }
-  </style>
-</head>
-<body>
-${styledMd}
-</body>
-</html>`;
-  };
-
-  const getAnnotationColor = (type) => {
-    switch (type) {
-      case 'comment': return 'rgba(255, 193, 7, 0.3)';
-      case 'review': return 'rgba(156, 39, 176, 0.3)';
-      case 'pending': return 'rgba(33, 150, 243, 0.3)';
-      case 'discussion': return 'rgba(76, 175, 80, 0.3)';
-      default: return 'rgba(255, 193, 7, 0.3)';
-    }
-  };
-
   if (!currentFile) {
     return (
       <div className="editor-empty">
         <p>ファイルを選択してください</p>
-        <style>{`
-          .editor-empty {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            color: var(--text-secondary);
-            font-size: 14px;
-          }
-        `}</style>
+        <style>{EDITOR_EMPTY_STYLES}</style>
       </div>
     );
   }
 
-  const formatDate = (isoString) => {
+  const formatDate = (isoString: string | undefined) => {
     if (!isoString) return '-';
     const date = new Date(isoString);
     return date.toLocaleString('ja-JP');
@@ -1189,7 +654,7 @@ ${styledMd}
       {/* ツールバー（settings.editor.showToolbar で制御） */}
       {!compact && settings.editor.showToolbar && (
         <div className="editor-toolbar">
-          {TOOLBAR_ITEMS.map((item, index) => {
+          {TOOLBAR_ITEMS.map((item) => {
             if (item.id.startsWith('divider')) {
               return <div key={item.id} className="toolbar-divider" />;
             }
@@ -1313,249 +778,7 @@ ${styledMd}
         />
       )}
 
-      <style>{`
-        .markdown-editor {
-          display: flex;
-          flex-direction: column;
-          height: 100%;
-          width: 100%;
-          background-color: var(--bg-primary);
-          min-width: 0;
-          overflow: hidden;
-        }
-
-        .editor-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 8px 16px;
-          background-color: var(--bg-secondary);
-          border-bottom: 1px solid var(--border-color);
-          flex-shrink: 0;
-        }
-
-        .editor-header.compact-header {
-          padding: 2px 8px;
-          background-color: var(--bg-tertiary);
-        }
-
-        .editor-header-left {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .editor-header-right {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .export-menu-wrapper {
-          position: relative;
-        }
-
-        .export-btn {
-          padding: 4px 10px;
-          font-size: 12px;
-          color: var(--text-secondary);
-          border-radius: 4px;
-          transition: all 0.15s;
-        }
-
-        .export-btn:hover {
-          background-color: var(--bg-hover);
-          color: var(--text-primary);
-        }
-
-        .export-menu {
-          position: absolute;
-          top: 100%;
-          right: 0;
-          margin-top: 4px;
-          background-color: var(--bg-secondary);
-          border: 1px solid var(--border-color);
-          border-radius: 6px;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-          z-index: 100;
-          overflow: hidden;
-        }
-
-        .export-menu button {
-          display: block;
-          width: 100%;
-          padding: 8px 16px;
-          text-align: left;
-          font-size: 12px;
-          color: var(--text-primary);
-          white-space: nowrap;
-        }
-
-        .export-menu button:hover {
-          background-color: var(--bg-hover);
-        }
-
-        /* ツールバー */
-        .editor-toolbar {
-          display: flex;
-          align-items: center;
-          gap: 2px;
-          padding: 4px 8px;
-          background-color: var(--bg-tertiary);
-          border-bottom: 1px solid var(--border-color);
-          flex-wrap: wrap;
-        }
-
-        .toolbar-btn {
-          padding: 4px 8px;
-          min-width: 28px;
-          font-size: 12px;
-          font-weight: 600;
-          color: var(--text-secondary);
-          border-radius: 4px;
-          transition: all 0.15s;
-        }
-
-        .toolbar-btn:hover {
-          background-color: var(--bg-hover);
-          color: var(--text-primary);
-        }
-
-        .toolbar-divider {
-          width: 1px;
-          height: 20px;
-          background-color: var(--border-color);
-          margin: 0 4px;
-        }
-
-        .file-name {
-          font-size: 13px;
-          color: var(--text-primary);
-        }
-
-        .modified-indicator {
-          color: var(--accent-color);
-          margin-left: 6px;
-        }
-
-        .metadata-btn {
-          padding: 4px;
-          border-radius: 4px;
-          color: var(--text-muted);
-          transition: all 0.15s;
-        }
-
-        .metadata-btn:hover {
-          background-color: var(--bg-hover);
-          color: var(--text-primary);
-        }
-
-        .metadata-btn svg {
-          width: 14px;
-          height: 14px;
-        }
-
-        .metadata-popup {
-          background-color: var(--bg-tertiary);
-          border-bottom: 1px solid var(--border-color);
-          padding: 12px 16px;
-          font-size: 12px;
-        }
-
-        .metadata-row {
-          display: flex;
-          justify-content: space-between;
-          padding: 4px 0;
-        }
-
-        .metadata-label {
-          color: var(--text-muted);
-        }
-
-        .metadata-value {
-          color: var(--text-primary);
-          font-family: monospace;
-        }
-
-        .metadata-path {
-          margin-top: 8px;
-          padding-top: 8px;
-          border-top: 1px solid var(--border-color);
-        }
-
-        .metadata-path .metadata-label {
-          display: block;
-          margin-bottom: 4px;
-        }
-
-        .metadata-value.path {
-          display: block;
-          word-break: break-all;
-          font-size: 10px;
-          color: var(--text-secondary);
-        }
-
-        .save-btn {
-          padding: 4px 12px;
-          background-color: var(--accent-color);
-          color: white;
-          border-radius: 4px;
-          font-size: 12px;
-          transition: all 0.2s;
-        }
-
-        .save-btn:hover:not(:disabled) {
-          background-color: var(--accent-hover);
-        }
-
-        .save-btn:disabled {
-          background-color: var(--bg-tertiary);
-          color: var(--text-muted);
-        }
-
-        .editor-main-area {
-          flex: 1;
-          display: flex;
-          overflow: hidden;
-          position: relative;
-          min-width: 0;
-          width: 100%;
-        }
-
-        .editor-container {
-          flex: 1;
-          overflow: hidden;
-          position: relative;
-          min-width: 0;
-          width: 100%;
-        }
-
-        .editor-container .cm-editor {
-          height: 100%;
-        }
-
-        /* 注釈ハイライトスタイル */
-        .cm-annotation-highlight {
-          background-color: color-mix(in srgb, var(--highlight-color) 25%, transparent);
-          border-bottom: 2px solid var(--highlight-color);
-          border-radius: 2px;
-        }
-        .cm-annotation-comment { --highlight-color: var(--comment-color); }
-        .cm-annotation-review { --highlight-color: var(--review-color); }
-        .cm-annotation-pending { --highlight-color: var(--pending-color); }
-        .cm-annotation-discussion { --highlight-color: var(--discussion-color); }
-
-        /* フラッシュハイライト */
-        .cm-flash-highlight {
-          background-color: color-mix(in srgb, var(--accent-color) 35%, transparent) !important;
-          animation: flash-fade 2.5s ease-out;
-        }
-
-        @keyframes flash-fade {
-          0% { background-color: color-mix(in srgb, var(--accent-color) 35%, transparent); }
-          100% { background-color: transparent; }
-        }
-      `}</style>
+      <style>{MARKDOWN_EDITOR_STYLES}</style>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useReducer, useCallback, useMemo, use
 import { v4 as uuidv4 } from 'uuid';
 import { useFile } from './FileContext';
 import { Tab, EditorGroup, TabLayout, SplitDirection } from '../types/tabs';
+import type { FileContextValue } from '../types';
 
 const TAB_LAYOUT_KEY = 'marginalia-tab-layout';
 
@@ -323,7 +324,7 @@ const TabContext = createContext<TabContextValue | null>(null);
 
 export function TabProvider({ children }: { children: React.ReactNode }) {
   const [layout, dispatch] = useReducer(tabReducer, null, createDefaultLayout);
-  const fileContext = useFile();
+  const fileContext = useFile() as FileContextValue;
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isRestoredRef = useRef(false);
 
@@ -396,7 +397,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
           for (const savedTab of savedGroup.tabs) {
             // ファイル存在確認
             try {
-              const exists = await window.electronAPI.exists(savedTab.filePath);
+              const exists = await window.electronAPI?.exists(savedTab.filePath);
               if (exists) {
                 tabs.push({
                   id: uuidv4(),
