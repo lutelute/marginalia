@@ -12,6 +12,7 @@ import {
   findAnnotationPositionInDoc,
 } from './annotationDecorations';
 import { createSelectorsFromEditorSelection, getEditorPosition } from '../../utils/selectorUtils';
+import { clampHoverCardX } from '../../utils/cardPosition';
 import { AnnotationV2, PendingSelectionV2, AnnotationType } from '../../types/annotations';
 import {
   getEditorVisibleLine,
@@ -360,14 +361,10 @@ function MarkdownEditor({ compact }: { compact?: boolean }) {
           hoverTimeoutRef.current = setTimeout(() => {
             // ビューポート座標で位置を計算（position: fixed 用）
             const rect = annotationEl.getBoundingClientRect();
-            const cardWidth = 320;
-            let hoverX = rect.left + rect.width / 2 - cardWidth / 2;
-            hoverX = Math.max(8, Math.min(hoverX, window.innerWidth - cardWidth - 8));
-
             setHoveredAnnotation({
               annotation,
               position: {
-                x: hoverX,
+                x: clampHoverCardX(rect.left + rect.width / 2),
                 y: rect.bottom + 8,
               },
             });
@@ -424,7 +421,7 @@ function MarkdownEditor({ compact }: { compact?: boolean }) {
   }, []);
 
   // テキスト選択時の処理（V2セレクタ生成）
-  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+  const handleMouseUp = useCallback((_e: React.MouseEvent) => {
     if (!viewRef.current || !editorRef.current) return;
 
     const selection = viewRef.current.state.selection.main;

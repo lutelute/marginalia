@@ -14,6 +14,7 @@ import {
 } from '../../utils/selectorUtils';
 import { AnnotationV2, AnnotationType, AnnotationSelector } from '../../types/annotations';
 import AnnotationHoverCard from '../Annotations/AnnotationHoverCard';
+import { clampHoverCardX } from '../../utils/cardPosition';
 import { triggerEditorScroll } from './MarkdownEditor';
 import FrontmatterCard from './FrontmatterCard';
 import { createPreviewMarkdownComponents } from './previewMarkdownComponents';
@@ -166,14 +167,10 @@ export default function AnnotatedPreview() {
                 if (!ann) return;
 
                 // マウス位置ベースで配置（ハイライト下端だと遠くなる場合がある）
-                const cardWidth = 320;
-                let hoverX = hoverMouseX - cardWidth / 2;
-                hoverX = Math.max(8, Math.min(hoverX, window.innerWidth - cardWidth - 8));
-
                 setHoverCardData({
                   annotation: ann,
                   position: {
-                    x: hoverX,
+                    x: clampHoverCardX(hoverMouseX),
                     y: hoverMouseY + 16,
                   },
                 });
@@ -208,14 +205,10 @@ export default function AnnotatedPreview() {
             if (!ann) return;
 
             // ビューポート座標で位置を計算（position: fixed 用）
-            const cardWidth = 320;
-            let hoverX2 = mouseX - cardWidth / 2;
-            hoverX2 = Math.max(8, Math.min(hoverX2, window.innerWidth - cardWidth - 8));
-
             setHoverCardData({
               annotation: ann,
               position: {
-                x: hoverX2,
+                x: clampHoverCardX(mouseX),
                 y: mouseY + 12,
               },
             });
