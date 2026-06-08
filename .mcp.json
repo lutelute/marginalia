@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "marginalia-build": {
+      "command": "node",
+      "args": [
+        "report-build-system/mcp-server/build/index.js"
+      ]
+    }
+  }
+}
