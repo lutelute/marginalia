@@ -8,6 +8,12 @@
     "dev:vite": "vite",
     "dev:electron": "wait-on http://localhost:5190 && cross-env NODE_ENV=development electron .",
     "build": "vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src electron scripts",
+    "format": "prettier --write src electron scripts",
+    "format:check": "prettier --check src electron scripts",
     "build:prod": "cross-env NODE_ENV=production vite build",
     "preview": "vite preview",
     "electron": "electron .",
@@ -32,16 +38,26 @@
   "license": "MIT",
   "devDependencies": {
     "@electron/rebuild": "^3.6.0",
+    "@eslint/js": "^10.0.1",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.2.0",
-    "@types/react": "^19.2.10",
-    "@types/react-dom": "^19.2.3",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^4.2.1",
+    "@vitejs/plugin-react-swc": "^4.3.0",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
     "electron": "^28.1.0",
     "electron-builder": "^26.7.0",
+    "eslint": "^10.4.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "prettier": "^3.8.3",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.60.1",
     "vite": "^6.4.1",
+    "vitest": "^4.1.8",
     "wait-on": "^7.2.0"
   },
   "build": {
@@ -62,17 +78,24 @@
       {
         "from": "report-build-system/templates/",
         "to": "report-build-system/templates/",
-        "filter": ["catalog.yaml"]
+        "filter": [
+          "catalog.yaml"
+        ]
       },
       {
         "from": "report-build-system/projects/",
         "to": "report-build-system/projects/",
-        "filter": ["demo-*.yaml", "example-*.yaml"]
+        "filter": [
+          "demo-*.yaml",
+          "example-*.yaml"
+        ]
       },
       {
         "from": "report-build-system/src/",
         "to": "report-build-system/src/",
-        "filter": ["**/*.md"]
+        "filter": [
+          "**/*.md"
+        ]
       }
     ],
     "afterPack": "./scripts/afterPack.js",

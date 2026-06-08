@@ -31,3 +31,9 @@ npm-debug.log*
 # Temporary files
 tmp/
 temp/
+
+# npm artifacts (duplicate lock files from Finder copies etc.)
+package-lock [0-9].json
+
+# Generated binary docs (Markdown is the source of truth)
+docs/*.docx
