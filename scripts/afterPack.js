@@ -1,5 +1,4 @@
 const { execSync } = require('child_process');
-const path = require('path');
 
 exports.default = async function (context) {
   const appDir = context.appOutDir;

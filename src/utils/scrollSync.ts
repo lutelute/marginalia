@@ -85,7 +85,7 @@ export function scrollPreviewToLine(
 export function scrollEditorToLine(
   view: EditorView,
   line: number,
-  smooth: boolean = true
+  _smooth: boolean = true
 ): void {
   const doc = view.state.doc;
   if (line < 1 || line > doc.lines) return;

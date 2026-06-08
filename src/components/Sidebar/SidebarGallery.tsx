@@ -16,11 +16,11 @@ function SidebarGallery({ onOpenFullGallery }: { onOpenFullGallery: () => void }
     runAllDemos,
     buildStatus, buildAllStatus, buildAllResults, buildAllProgress,
     // ProjectPanel から吸収
-    isProject, manifests, buildResult, buildLog, runBuild, loadProjectData,
+    isProject, manifests, buildResult, buildLog, runBuild,
   } = useBuild();
   const { openTab } = useTab();
 
-  const [installError, setInstallError] = useState<string | null>(null);
+  const [installError] = useState<string | null>(null);
 
   // サブタブ: プロジェクトがあれば 'build' をデフォルトに
   const [activeSubTab, setActiveSubTab] = useState<SubTab>(isProject ? 'build' : 'templates');

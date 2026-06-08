@@ -27,7 +27,11 @@ export default tseslint.config(
       // --- 既存コードベースの実態に合わせて warning に格下げ ---
       // Stage 2 のコンポーネント分割・リファクタリングで順次 error 化する（ラチェット方式）
       '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      // _ prefix の引数・変数、rest 分割代入での使い捨ては「意図的に未使用」の慣用句として許可
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true },
+      ],
       '@typescript-eslint/no-non-null-assertion': 'warn',
       'react-hooks/exhaustive-deps': 'warn',
       // rules-of-hooks は Stage 2-1 で全違反を修正済み → error 維持
@@ -108,10 +112,12 @@ export default tseslint.config(
       },
     },
     rules: {
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      'no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true },
+      ],
       'no-empty': ['warn', { allowEmptyCatch: true }],
-      // new Promise(async ...) パターンが2箇所ある。Stage 2 でリファクタ後 error 化
-      'no-async-promise-executor': 'warn',
+      'no-async-promise-executor': 'error',
     },
   },
 

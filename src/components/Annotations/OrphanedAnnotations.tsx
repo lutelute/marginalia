@@ -18,14 +18,10 @@ function OrphanedAnnotations() {
     orphanedFiles,
     exportOrphanedFile,
     deleteOrphanedFile,
-    openFile,
-    fileTree,
   } = useFile();
 
   const [reassignMode, setReassignMode] = useState<string | null>(null);
   const [newText, setNewText] = useState('');
-  const [fileReassignMode, setFileReassignMode] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<string>('');
 
   const handleKeep = useCallback((id: string) => {
     keepAnnotation(id);
@@ -65,26 +61,6 @@ function OrphanedAnnotations() {
       await deleteOrphanedFile(file);
     }
   }, [deleteOrphanedFile]);
-
-  // ファイルツリーから.mdファイルを抽出
-  const getMdFiles = useCallback((tree: any[]): { path: string; name: string }[] => {
-    const files: { path: string; name: string }[] = [];
-
-    const traverse = (nodes: any[]) => {
-      for (const node of nodes) {
-        if (node.type === 'file' && (node.name.endsWith('.md') || node.name.endsWith('.markdown'))) {
-          files.push({ path: node.path, name: node.name });
-        } else if (node.type === 'directory' && node.children) {
-          traverse(node.children);
-        }
-      }
-    };
-
-    traverse(tree);
-    return files;
-  }, []);
-
-  const mdFiles = getMdFiles(fileTree || []);
 
   const totalOrphaned = orphanedAnnotations.length;
   const totalKept = keptAnnotations.length;

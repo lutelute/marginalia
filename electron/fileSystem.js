@@ -366,7 +366,7 @@ async function listBackups(filePath) {
             size: data.content.length,
           });
         }
-      } catch (e) {
+      } catch {
         // 読み込みエラーは無視
       }
     }
@@ -583,7 +583,7 @@ async function listMarginaliaBackups(filePath) {
             annotationCount: data.annotationCount,
           });
         }
-      } catch (e) {
+      } catch {
         // 読み込みエラーは無視
       }
     }

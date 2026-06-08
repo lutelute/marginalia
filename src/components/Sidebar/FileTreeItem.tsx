@@ -19,8 +19,8 @@ function FileTreeItem({ item, depth }: { item: FileTreeItemNode; depth: number }
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const renameInputRef = useRef<HTMLInputElement>(null);
-  const { currentFile, renameFileWithAnnotations, moveFileWithAnnotations, rootPath } = useFile();
-  const { openTab, updateTabPath, removeTabsByPath } = useTab();
+  const { currentFile, renameFileWithAnnotations, moveFileWithAnnotations } = useFile();
+  const { openTab, updateTabPath } = useTab();
 
   const isActive = currentFile === item.path;
   const paddingLeft = 12 + depth * 16;

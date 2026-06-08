@@ -73,7 +73,7 @@ function LinkPreviewPopup({ href, position, rootPath, currentFile, onClose }: Li
         } else {
           setError('ファイルが見つかりません');
         }
-      } catch (e) {
+      } catch {
         setError('読み込みエラー');
       }
       setLoading(false);

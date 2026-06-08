@@ -22,7 +22,6 @@ function SettingsPanel() {
     checkForUpdates,
     updateInfo,
     isCheckingUpdate,
-    isDevelopment,
     appVersion,
     githubRepo,
     // 自動アップデート

@@ -55,7 +55,7 @@ function destroySession(sessionId) {
 }
 
 function destroyAll() {
-  for (const [sessionId, session] of sessions) {
+  for (const [, session] of sessions) {
     session.pty.kill();
   }
   sessions.clear();

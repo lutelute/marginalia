@@ -37,7 +37,7 @@ export function markdownSyntaxCompletion(context: CompletionContext): Completion
   }
 
   // General trigger: get word before cursor
-  const word = context.matchBefore(/[\w#!\[\]$`>|\-*~]+/);
+  const word = context.matchBefore(/[\w#![\]$`>|\-*~]+/);
   if (!word || word.from === word.to) return null;
   if (word.text.length < 1 && !context.explicit) return null;
 

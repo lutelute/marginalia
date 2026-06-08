@@ -25,7 +25,7 @@ interface EditorGroupPaneProps {
 
 function EditorGroupPane({ group, isActive }: EditorGroupPaneProps) {
   const { activateTab, closeTab, setActiveGroup, moveTab, createGroup, setSplitDirection, splitTab, layout } = useTab();
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [, setDragOverIndex] = useState<number | null>(null);
   const [dropZone, setDropZone] = useState<DropZone>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 

@@ -158,14 +158,6 @@ const DEFAULT_SETTINGS = {
   },
 };
 
-// OS設定から実効テーマを計算
-const getEffectiveTheme = (theme: 'dark' | 'light' | 'system'): 'dark' | 'light' => {
-  if (theme === 'system') {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  }
-  return theme;
-};
-
 // 深いマージ関数（デフォルト設定と保存された設定をマージ）
 function deepMerge<T extends Record<string, any>>(defaults: T, saved: Partial<T>): T {
   const result = { ...defaults };
@@ -341,8 +333,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloadUrl, setDownloadUrl] = useState<string | null | undefined>(null);
-  const [isInstalling, setIsInstalling] = useState(false);
-  const [isReadyToInstall, setIsReadyToInstall] = useState(false);
+  const [, setIsInstalling] = useState(false);
+  const [, setIsReadyToInstall] = useState(false);
 
   // Electronアップデート進捗イベントを監視
   useEffect(() => {
@@ -396,7 +388,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         });
         setUpdateStatus('error');
       }
-    } catch (error) {
+    } catch {
       setUpdateInfo({
         hasUpdate: false,
         currentVersion: APP_VERSION,
@@ -442,7 +434,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         }));
         setUpdateStatus('error');
       }
-    } catch (error) {
+    } catch {
       setIsDownloading(false);
       setUpdateInfo(prev => ({
         ...prev,
@@ -474,7 +466,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         }));
         setUpdateStatus('error');
       }
-    } catch (error) {
+    } catch {
       setIsInstalling(false);
       setUpdateInfo(prev => ({
         ...prev,

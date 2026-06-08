@@ -3,10 +3,7 @@ import {
   AnnotationType,
   W3CTextAnnotation,
   W3CSelector,
-  TextQuoteSelector,
-  TextPositionSelector,
   AnnotationSelector,
-  AnnotationReply,
 } from '../types/annotations';
 import { v4 as uuidv4 } from 'uuid';
 

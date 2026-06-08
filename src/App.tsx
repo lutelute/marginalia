@@ -114,7 +114,7 @@ interface AppContentProps {
 
 function AppContent({ sidebarWidth, annotationWidth, handleSidebarResize, handleAnnotationResize, appRef }: AppContentProps) {
   const { isSidebarOpen, isAnnotationPanelOpen, explorerCollapsed, galleryCollapsed, sidebarSplitRatio, toggleExplorer, toggleGallery, setSidebarSplitRatio, openGalleryModal } = useAppState();
-  const { projectDir, manifestData, selectedManifestPath, updateManifestData, saveManifest, refreshFromDisk } = useBuild();
+  const { manifestData, selectedManifestPath, updateManifestData, saveManifest, refreshFromDisk } = useBuild();
   const { rootPath } = useFile();
   const { activeTab, openTerminalTab } = useTab();
   const editorMode = activeTab?.editorMode || 'split';

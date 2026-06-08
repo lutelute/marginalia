@@ -30,7 +30,7 @@ function AnnotationHoverCard({
   onAddReply,
   onJumpToEditor,
   onJumpToPreview,
-  source = 'preview',
+  source: _source = 'preview',
   onMouseEnter,
   onMouseLeave,
 }: AnnotationHoverCardProps) {

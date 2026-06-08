@@ -5,7 +5,7 @@
 import { Decoration, DecorationSet, EditorView } from '@codemirror/view';
 import { StateField, StateEffect, RangeSetBuilder, Text } from '@codemirror/state';
 import { AnnotationV2 } from '../../types/annotations';
-import { anchorAnnotation, getAnnotationExactText } from '../../utils/selectorUtils';
+import { anchorAnnotation } from '../../utils/selectorUtils';
 
 // 注釈更新用Effect
 export const setAnnotationsEffect = StateEffect.define<AnnotationV2[]>();

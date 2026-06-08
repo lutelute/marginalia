@@ -5,7 +5,6 @@ import {
   FileAction,
   FileContextValue,
   FileStats,
-  FileOperationResult,
 } from '../types';
 import { humanizeError } from '../utils/errorMessages';
 
@@ -521,10 +520,8 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
 
       await window.electronAPI.writeMarginalia(newFilePath, data);
 
-      // 古い.marginaliaファイルを削除
-      const oldMarginaliaPath = orphanedFile.filePath + '.marginalia';
-      // Note: deleteFile APIが必要かもしれませんが、ここでは孤立リストから削除のみ
-
+      // 古い.marginaliaファイルは現状では削除せず、孤立リストからのみ除外する
+      // （専用の deleteFile API が必要なため、ここでは未対応）
       dispatch({ type: 'REMOVE_ORPHANED_FILE', payload: orphanedFile.filePath });
 
       return { success: true };

@@ -6,7 +6,7 @@
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
-const { app, shell } = require('electron');
+const { app } = require('electron');
 const { spawnSync } = require('child_process');
 
 /**
@@ -245,7 +245,7 @@ async function downloadUpdate(downloadUrl, onProgress) {
  * @returns {Promise<{success: boolean, error?: string, needsRestart?: boolean}>}
  */
 async function installUpdate() {
-  return new Promise(async (resolve) => {
+  return new Promise((resolve) => {
     if (!downloadedFilePath || !fs.existsSync(downloadedFilePath)) {
       resolve({ success: false, error: 'ダウンロードファイルが見つかりません' });
       return;
@@ -303,7 +303,7 @@ async function installUpdate() {
       if (mountPoint) {
         try {
           run('hdiutil', ['detach', mountPoint, '-quiet', '-force']);
-        } catch (e) {
+        } catch {
           // 無視
         }
       }

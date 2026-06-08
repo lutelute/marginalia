@@ -93,7 +93,7 @@ app.whenReady().then(() => {
       return new Response(data, {
         headers: { 'Content-Type': mime }
       });
-    } catch (e) {
+    } catch {
       return new Response('Not Found', { status: 404 });
     }
   });

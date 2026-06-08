@@ -14,7 +14,7 @@ export function createCitationCompletion(bibEntries: BibEntry[]) {
     const citeMatch = context.matchBefore(/@cite\{[^}]*$/);
     if (citeMatch) {
       const bracePos = citeMatch.text.indexOf('{');
-      const partial = citeMatch.text.slice(bracePos + 1);
+      const _partial = citeMatch.text.slice(bracePos + 1);
       const from = citeMatch.from + bracePos + 1;
 
       return {

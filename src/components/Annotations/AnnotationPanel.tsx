@@ -2,12 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useAnnotation } from '../../contexts/AnnotationContext';
 import { useFile } from '../../contexts/FileContext';
 import CommentThread from './CommentThread';
-import HistoryItem from './HistoryItem';
 import BackupPanel from './BackupPanel';
 import TimelineView from './TimelineView';
 import OrphanedAnnotations from './OrphanedAnnotations';
 import { ANNOTATION_TYPE_CONFIGS } from '../../constants/annotationTypes';
-import { getEditorPosition, getAnnotationExactText } from '../../utils/selectorUtils';
+import { getEditorPosition } from '../../utils/selectorUtils';
 import type { AnnotationType } from '../../types/annotations';
 
 function AnnotationPanel() {
@@ -20,14 +19,12 @@ function AnnotationPanel() {
   const { currentFile } = useFile();
   const {
     annotations,
-    history,
     pendingSelection,
     selectedAnnotation,
     addAnnotation,
     setPendingSelection,
     orphanedAnnotations,
     keptAnnotations,
-    activeAnnotations,
     detectOrphanedAnnotations,
   } = useAnnotation();
   const { content } = useFile();

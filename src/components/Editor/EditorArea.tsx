@@ -1,11 +1,9 @@
 import React, { useCallback, useRef } from 'react';
-import { useTab } from '../../contexts/TabContext';
 import { useTerminal } from '../../contexts/TerminalContext';
 import EditorGroupContainer from './EditorGroupContainer';
 import TerminalPanel from '../Terminal/TerminalPanel';
 
 function EditorArea() {
-  const { layout } = useTab();
   const { state: terminalState, setBottomPanelHeight } = useTerminal();
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);

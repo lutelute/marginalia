@@ -32,7 +32,7 @@ function TemplatePreviewPopup({ previewFile, projectDir, anchorRect }: TemplateP
         }
         prevUrlRef.current = url;
         setBlobUrl(url);
-      } catch (e: any) {
+      } catch {
         if (!cancelled) setError('PDF を読み込めません');
       } finally {
         if (!cancelled) setLoading(false);

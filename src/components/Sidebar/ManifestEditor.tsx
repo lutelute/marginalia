@@ -1,6 +1,5 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useBuild } from '../../contexts/BuildContext';
-import type { ManifestData } from '../../types';
 
 function ManifestEditor() {
   const {

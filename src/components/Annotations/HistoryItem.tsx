@@ -9,14 +9,6 @@ const ACTION_ICONS: Record<string, string> = {
   edit: '📝',
 };
 
-const ACTION_LABELS = {
-  comment: 'コメント',
-  review: '校閲',
-  pending: '保留',
-  discussion: '議論',
-  edit: '編集',
-};
-
 function HistoryItem({ item }: { item: HistoryEntryV2 }) {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);

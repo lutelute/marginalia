@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AnnotationV2 } from '../../types/annotations';
 import MarginCard from './MarginCard';
 
@@ -33,7 +33,7 @@ function MarginCardContainer({
   onDelete,
   onAddReply,
   onJumpToEditor,
-  containerRef,
+  containerRef: _containerRef,
 }: MarginCardContainerProps) {
   const [cardPositions, setCardPositions] = useState<Map<string, number>>(new Map());
 

@@ -217,25 +217,24 @@ function pythonModuleExists(moduleName) {
  */
 const ALLOWED_FORMATS = ['pdf', 'docx'];
 
-function runBuild(projectRoot, manifestPath, format, onProgress) {
-  return new Promise(async (resolve) => {
-    // format はホワイトリスト検証（任意引数の注入防止）
-    if (format && !ALLOWED_FORMATS.includes(format)) {
-      resolve({ success: false, error: `不正な出力フォーマット: ${format}` });
-      return;
-    }
-    const args = [path.join(projectRoot, 'build'), manifestPath];
-    if (format) args.push(`--${format}`);
+async function runBuild(projectRoot, manifestPath, format, onProgress) {
+  // format はホワイトリスト検証（任意引数の注入防止）
+  if (format && !ALLOWED_FORMATS.includes(format)) {
+    return { success: false, error: `不正な出力フォーマット: ${format}` };
+  }
+  const args = [path.join(projectRoot, 'build'), manifestPath];
+  if (format) args.push(`--${format}`);
 
-    // venv の Python を優先、なければシステム python3
-    const venvPython = path.join(projectRoot, '.venv', 'bin', 'python3');
-    const pythonCmd = await exists(venvPython) ? venvPython : 'python3';
+  // venv の Python を優先、なければシステム python3
+  const venvPython = path.join(projectRoot, '.venv', 'bin', 'python3');
+  const pythonCmd = (await exists(venvPython)) ? venvPython : 'python3';
 
-    // マニフェスト名から出力パスを算出
-    const manifestName = path.basename(manifestPath, path.extname(manifestPath));
-    const ext = format || 'pdf';
-    const expectedOutputPath = path.join(projectRoot, 'output', `${manifestName}.${ext}`);
+  // マニフェスト名から出力パスを算出
+  const manifestName = path.basename(manifestPath, path.extname(manifestPath));
+  const ext = format || 'pdf';
+  const expectedOutputPath = path.join(projectRoot, 'output', `${manifestName}.${ext}`);
 
+  return new Promise((resolve) => {
     const child = execFile(pythonCmd, args, {
       cwd: projectRoot,
       maxBuffer: 10 * 1024 * 1024, // 10MB
