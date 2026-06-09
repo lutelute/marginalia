@@ -254,6 +254,33 @@ export interface UpdaterPort {
 }
 
 // ---------------------------------------------------------------------------
+// シェル（外部アプリ・ビューア）
+// ---------------------------------------------------------------------------
+
+/**
+ * OS シェル連携ポート。Electron=shell.openPath / Web=window.open or DL。
+ */
+export interface ShellPort {
+  openPath(filePath: string): Promise<string>;
+  openPdfViewer(filePath: string): Promise<{ success: boolean; error?: string } | void>;
+}
+
+// ---------------------------------------------------------------------------
+// ギャラリーウィンドウ（別ウィンドウ連携）
+// ---------------------------------------------------------------------------
+
+/**
+ * テンプレートギャラリー別ウィンドウとの連携ポート。
+ * Electron=BrowserWindow / Web=モーダル等で代替。
+ */
+export interface GalleryPort {
+  openWindow(projectDir: string): Promise<void>;
+  getProjectDir(): Promise<string | null>;
+  applyTemplate(templateName: string): Promise<void>;
+  notifyChange(): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
 // Key-Value ストア（localStorage 抽象）
 // ---------------------------------------------------------------------------
 
@@ -285,5 +312,7 @@ export interface PlatformPorts {
   resources: ResourceLocatorPort;
   bus: UIEventBus;
   updater: UpdaterPort;
+  shell: ShellPort;
+  gallery: GalleryPort;
   kv: KeyValueStore;
 }

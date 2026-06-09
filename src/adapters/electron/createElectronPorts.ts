@@ -93,6 +93,16 @@ export function createElectronPorts(): PlatformPorts {
       getAppVersion: () => api().getAppVersion(),
       onProgress: (cb) => api().onUpdateProgress(cb),
     },
+    shell: {
+      openPath: (filePath) => api().openPath(filePath),
+      openPdfViewer: (filePath) => api().openPdfViewer(filePath),
+    },
+    gallery: {
+      openWindow: (projectDir) => api().openGalleryWindow(projectDir),
+      getProjectDir: () => api().getGalleryProjectDir(),
+      applyTemplate: (templateName) => api().galleryApplyTemplate(templateName),
+      notifyChange: () => api().galleryNotifyChange(),
+    },
     // localStorage 同期バックエンドを Promise でラップ（Web では IndexedDB 等に差し替え可能）
     kv: {
       get: (key) => Promise.resolve(localStorage.getItem(key)),
