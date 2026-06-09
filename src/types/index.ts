@@ -14,6 +14,17 @@ import type {
   DependencyStatus,
   ProjectDetectionResult,
 } from '@marginalia/shared-types';
+// File 系の型も @marginalia/shared-types に移行（ElectronAPI で参照する分を import）
+import type {
+  FileTreeNode,
+  FileStats,
+  ReadDirectoryOptions,
+  BackupListResult,
+  RestoreBackupResult,
+  PreviewBackupResult,
+  CreateBackupResult,
+  RestoreMarginaliaBackupResult,
+} from '@marginalia/shared-types';
 
 // ---------------------------------------------------------------------------
 // FileContext (src/contexts/FileContext.tsx) の型
@@ -159,60 +170,18 @@ export interface AnnotationFilter {
   author: string | null;
 }
 
-// File Types
-export interface FileTreeNode {
-  name: string;
-  path: string;
-  type: 'file' | 'directory';
-  isHidden?: boolean;
-  isSystem?: boolean;
-  children?: FileTreeNode[];
-}
-
-export interface FileStats {
-  fileName?: string;
-  filePath?: string;
-  size?: number;
-  sizeFormatted?: string;
-  created?: string;
-  modified?: string;
-  mtime?: string;
-  lines?: number;
-  words?: number;
-  chars?: number;
-  [key: string]: unknown;
-}
-
-export interface BackupInfo {
-  id: string;
-  path: string;
-  fileName: string;
-  createdAt: string;
-  /** ファイルバックアップ（listBackups）にのみ存在 */
-  size?: number;
-  /** 注釈バックアップ（listMarginaliaBackups）にのみ存在 */
-  annotationCount?: number;
-}
-
-export type BackupListResult =
-  | { success: true; backups: BackupInfo[] }
-  | { success: false; error: string };
-
-export type PreviewBackupResult =
-  | { success: true; content: string; createdAt: string; fileName: string }
-  | { success: false; error: string };
-
-export type RestoreBackupResult =
-  | { success: true; content: string }
-  | { success: false; error: string };
-
-export type RestoreMarginaliaBackupResult =
-  | { success: true; data: unknown }
-  | { success: false; error: string };
-
-export type CreateBackupResult =
-  | { success: true; backupPath: string }
-  | { success: false; error: string };
+// File Types — 実体は @marginalia/shared-types（M4 で移行）
+export type {
+  FileTreeNode,
+  FileStats,
+  BackupInfo,
+  BackupListResult,
+  PreviewBackupResult,
+  RestoreBackupResult,
+  RestoreMarginaliaBackupResult,
+  CreateBackupResult,
+  ReadDirectoryOptions,
+} from '@marginalia/shared-types';
 
 // Settings Types
 export interface EditorSettings {
@@ -283,11 +252,6 @@ export type UpdateStatus =
   | { status: 'error'; message: string };
 
 // Electron API Types
-export interface ReadDirectoryOptions {
-  showHidden?: boolean;
-  systemDirs?: string[];
-}
-
 export interface ElectronAPI {
   openDirectory: () => Promise<string | null>;
   readDirectory: (path: string, options?: ReadDirectoryOptions) => Promise<FileTreeNode[]>;
