@@ -2,6 +2,7 @@ import React, { createContext, useContext, useReducer, useCallback, useEffect } 
 import type { ManifestInfo, TemplateInfo, BuildResult, DependencyStatus, ManifestData, CatalogData } from '../types';
 import { parseBibtex, type BibEntry } from '../codemirror/parsers/bibtex';
 import { humanizeError } from '../utils/errorMessages';
+import { usePorts } from './PortsContext';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -210,11 +211,11 @@ const BuildContext = createContext<BuildContextValue | null>(null);
 
 export function BuildProvider({ children, rootPath }: { children: React.ReactNode; rootPath: string | null }) {
   const [state, dispatch] = useReducer(buildReducer, initialState);
+  const ports = usePorts();
 
   const detectProject = useCallback(async (dirPath: string) => {
-    if (!window.electronAPI) return;
     try {
-      const result = await window.electronAPI.detectProject(dirPath);
+      const result = await ports.build.detectProject(dirPath);
       dispatch({
         type: 'SET_PROJECT',
         payload: { isProject: result.isProject, projectDir: result.projectDir },
@@ -222,18 +223,17 @@ export function BuildProvider({ children, rootPath }: { children: React.ReactNod
     } catch {
       dispatch({ type: 'CLEAR_PROJECT' });
     }
-  }, []);
+  }, [ports]);
 
   const loadProjectData = useCallback(async (dirPath: string) => {
-    if (!window.electronAPI) return;
     try {
       const [manifestsResult, templatesResult, catalogResult, sourceFilesResult, bibResult, deps] = await Promise.all([
-        window.electronAPI.listManifests(dirPath),
-        window.electronAPI.listTemplates(dirPath),
-        window.electronAPI.readCatalog(dirPath),
-        window.electronAPI.listSourceFiles(dirPath),
-        window.electronAPI.listBibFiles(dirPath),
-        window.electronAPI.checkDependencies?.() ?? Promise.resolve(null),
+        ports.build.listManifests(dirPath),
+        ports.build.listTemplates(dirPath),
+        ports.build.readCatalog(dirPath),
+        ports.build.listSourceFiles(dirPath),
+        ports.build.listBibFiles(dirPath),
+        ports.build.checkDependencies?.() ?? Promise.resolve(null),
       ]);
 
       if (manifestsResult.success) {
@@ -261,29 +261,27 @@ export function BuildProvider({ children, rootPath }: { children: React.ReactNod
     } catch (error) {
       console.error('Failed to load project data:', error);
     }
-  }, []);
+  }, [ports]);
 
   const selectManifest = useCallback(async (path: string) => {
     dispatch({ type: 'SELECT_MANIFEST', payload: path });
-    if (!window.electronAPI) return;
     try {
-      const result = await window.electronAPI.readManifest(path);
+      const result = await ports.build.readManifest(path);
       if (result.success && result.data) {
         dispatch({ type: 'SET_MANIFEST_DATA', payload: result.data as ManifestData });
       }
     } catch (error) {
       console.error('Failed to read manifest:', error);
     }
-  }, []);
+  }, [ports]);
 
   const updateManifestData = useCallback((data: ManifestData) => {
     dispatch({ type: 'UPDATE_MANIFEST_DATA', payload: data });
   }, []);
 
   const saveManifest = useCallback(async (path: string, data: ManifestData): Promise<boolean> => {
-    if (!window.electronAPI) return false;
     try {
-      const result = await window.electronAPI.writeManifest(path, data);
+      const result = await ports.build.writeManifest(path, data);
       if (result.success && state.projectDir) {
         await loadProjectData(state.projectDir);
       }
@@ -292,7 +290,7 @@ export function BuildProvider({ children, rootPath }: { children: React.ReactNod
       console.error('Failed to save manifest:', error);
       return false;
     }
-  }, [state.projectDir, loadProjectData]);
+  }, [state.projectDir, loadProjectData, ports]);
 
   const clearManifest = useCallback(() => {
     dispatch({ type: 'CLEAR_MANIFEST' });
@@ -305,28 +303,27 @@ export function BuildProvider({ children, rootPath }: { children: React.ReactNod
   }, [state.projectDir, loadProjectData]);
 
   const createCustomTemplate = useCallback(async (name: string, baseTemplate?: string) => {
-    if (!state.projectDir || !window.electronAPI) return { success: false, error: 'プロジェクトが未検出です' };
-    const result = await window.electronAPI.createCustomTemplate(state.projectDir, name, baseTemplate);
+    if (!state.projectDir) return { success: false, error: 'プロジェクトが未検出です' };
+    const result = await ports.build.createCustomTemplate(state.projectDir, name, baseTemplate);
     if (result.success) {
       await loadProjectData(state.projectDir);
     }
     return result;
-  }, [state.projectDir, loadProjectData]);
+  }, [state.projectDir, loadProjectData, ports]);
 
   const deleteCustomTemplate = useCallback(async (name: string) => {
-    if (!state.projectDir || !window.electronAPI) return { success: false, error: 'プロジェクトが未検出です' };
-    const result = await window.electronAPI.deleteCustomTemplate(state.projectDir, name);
+    if (!state.projectDir) return { success: false, error: 'プロジェクトが未検出です' };
+    const result = await ports.build.deleteCustomTemplate(state.projectDir, name);
     if (result.success) {
       await loadProjectData(state.projectDir);
     }
     return result;
-  }, [state.projectDir, loadProjectData]);
+  }, [state.projectDir, loadProjectData, ports]);
 
   const quickBuildDemo = useCallback(async (demoStem: string, format?: string) => {
-    if (!window.electronAPI?.quickBuildDemo) return;
     dispatch({ type: 'BUILD_START' });
     try {
-      const result = await window.electronAPI.quickBuildDemo(demoStem, format);
+      const result = await ports.build.quickBuildDemo(demoStem, format);
       if (result.success) {
         dispatch({ type: 'BUILD_SUCCESS', payload: result });
       } else {
@@ -336,32 +333,31 @@ export function BuildProvider({ children, rootPath }: { children: React.ReactNod
       console.error('[BuildContext] quickBuildDemo failed:', error);
       dispatch({ type: 'BUILD_ERROR', payload: { success: false, error: humanizeError(error) } });
     }
-  }, []);
+  }, [ports]);
 
   const runAllDemos = useCallback(async (format?: string) => {
-    if (!window.electronAPI?.runAllDemos) return;
     dispatch({ type: 'BUILD_ALL_START' });
     try {
-      const result = await window.electronAPI.runAllDemos(format);
+      const result = await ports.build.runAllDemos(format);
       dispatch({ type: 'BUILD_ALL_COMPLETE', payload: result.results || [] });
     } catch {
       dispatch({ type: 'BUILD_ALL_COMPLETE', payload: [] });
     }
-  }, []);
+  }, [ports]);
 
   const installSample = useCallback(async (demoStem: string) => {
-    if (!window.electronAPI?.installSample || !state.projectDir) {
+    if (!state.projectDir) {
       return { success: false, error: 'プロジェクトが未検出です' };
     }
-    const result = await window.electronAPI.installSample(demoStem, state.projectDir);
+    const result = await ports.build.installSample(demoStem, state.projectDir);
     if (result.success && state.projectDir) {
       await loadProjectData(state.projectDir);
     }
     return result;
-  }, [state.projectDir, loadProjectData]);
+  }, [state.projectDir, loadProjectData, ports]);
 
   const runBuild = useCallback(async (manifestPath: string, format: string) => {
-    if (!state.projectDir || !window.electronAPI) return;
+    if (!state.projectDir) return;
 
     // ビルド対象マニフェストが選択中でメモリ上に変更がある場合、自動保存
     if (state.selectedManifestPath === manifestPath && state.manifestData) {
@@ -375,7 +371,7 @@ export function BuildProvider({ children, rootPath }: { children: React.ReactNod
     dispatch({ type: 'BUILD_START' });
 
     try {
-      const result = await window.electronAPI.runBuild(state.projectDir, manifestPath, format);
+      const result = await ports.build.runBuild(state.projectDir, manifestPath, format);
       if (result.success) {
         dispatch({ type: 'BUILD_SUCCESS', payload: result });
       } else {
@@ -388,27 +384,25 @@ export function BuildProvider({ children, rootPath }: { children: React.ReactNod
         payload: { success: false, error: humanizeError(error) },
       });
     }
-  }, [state.projectDir, state.selectedManifestPath, state.manifestData, saveManifest]);
+  }, [state.projectDir, state.selectedManifestPath, state.manifestData, saveManifest, ports]);
 
   // アプリ起動時にデフォルトカタログをロード
   useEffect(() => {
-    if (!window.electronAPI?.readDefaultCatalog) return;
-    window.electronAPI.readDefaultCatalog().then((result) => {
+    ports.resources.readDefaultCatalog().then((result) => {
       if (result.success && result.catalog) {
         dispatch({ type: 'SET_DEFAULT_CATALOG', payload: result.catalog });
       }
     });
-  }, []);
+  }, [ports]);
 
   // アプリ起動時にデフォルトデモデータをロード
   useEffect(() => {
-    if (!window.electronAPI?.readDefaultDemoData) return;
-    window.electronAPI.readDefaultDemoData().then((result: any) => {
+    ports.resources.readDefaultDemoData().then((result) => {
       if (result.success) {
         dispatch({ type: 'SET_DEFAULT_DEMO_DATA', payload: { demoData: result.demoData, templateMap: result.templateMap } });
       }
     });
-  }, []);
+  }, [ports]);
 
   // rootPath 変更時にプロジェクト検出
   useEffect(() => {
@@ -428,29 +422,26 @@ export function BuildProvider({ children, rootPath }: { children: React.ReactNod
 
   // ビルド進捗リスナー
   useEffect(() => {
-    if (!window.electronAPI?.onBuildProgress) return;
-    const cleanup = window.electronAPI.onBuildProgress((data) => {
+    const cleanup = ports.build.onBuildProgress((data) => {
       const lines = data.trim().split('\n').filter((l: string) => l.length > 0);
       for (const line of lines) {
         dispatch({ type: 'ADD_BUILD_LOG', payload: line });
       }
     });
     return cleanup;
-  }, []);
+  }, [ports]);
 
   // Build All 進捗リスナー
   useEffect(() => {
-    if (!window.electronAPI?.onBuildAllProgress) return;
-    const cleanup = window.electronAPI.onBuildAllProgress((data) => {
+    const cleanup = ports.build.onBuildAllProgress((data) => {
       dispatch({ type: 'BUILD_ALL_PROGRESS', payload: data });
     });
     return cleanup;
-  }, []);
+  }, [ports]);
 
   // ⌘+Shift+B ビルドショートカット
   useEffect(() => {
-    if (!window.electronAPI?.onTriggerBuild) return;
-    const cleanup = window.electronAPI.onTriggerBuild(() => {
+    const cleanup = ports.build.onTriggerBuild(() => {
       if (state.selectedManifestPath && state.manifestData?.output?.length) {
         runBuild(state.selectedManifestPath, state.manifestData.output[0]);
       }

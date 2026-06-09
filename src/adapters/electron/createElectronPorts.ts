@@ -11,10 +11,38 @@ import type { PlatformPorts } from '@marginalia/ports';
  * PlatformPorts を返す factory として用意し、アプリ起動点で差し替える。
  */
 export function createElectronPorts(): PlatformPorts {
+  const api = () => window.electronAPI;
   return {
     annotations: {
-      read: (docPath) => window.electronAPI.readMarginalia(docPath),
-      write: (docPath, data) => window.electronAPI.writeMarginalia(docPath, data),
+      read: (docPath) => api().readMarginalia(docPath),
+      write: (docPath, data) => api().writeMarginalia(docPath, data),
+    },
+    build: {
+      detectProject: (dirPath) => api().detectProject(dirPath),
+      listManifests: (dirPath) => api().listManifests(dirPath),
+      listTemplates: (dirPath) => api().listTemplates(dirPath),
+      readCatalog: (dirPath) => api().readCatalog(dirPath),
+      listSourceFiles: (dirPath) => api().listSourceFiles(dirPath),
+      listBibFiles: (dirPath) => api().listBibFiles(dirPath),
+      checkDependencies: () => api().checkDependencies(),
+      readManifest: (manifestPath) => api().readManifest(manifestPath),
+      writeManifest: (manifestPath, data) => api().writeManifest(manifestPath, data),
+      createCustomTemplate: (dirPath, name, baseTemplate) =>
+        api().createCustomTemplate(dirPath, name, baseTemplate),
+      deleteCustomTemplate: (dirPath, name) => api().deleteCustomTemplate(dirPath, name),
+      runBuild: (projectRoot, manifestPath, format) =>
+        api().runBuild(projectRoot, manifestPath, format),
+      quickBuildDemo: (demoStem, format) => api().quickBuildDemo(demoStem, format),
+      runAllDemos: (format) => api().runAllDemos(format),
+      installSample: (demoStem, targetProjectDir) =>
+        api().installSample(demoStem, targetProjectDir),
+      onBuildProgress: (cb) => api().onBuildProgress(cb),
+      onBuildAllProgress: (cb) => api().onBuildAllProgress(cb),
+      onTriggerBuild: (cb) => api().onTriggerBuild(cb),
+    },
+    resources: {
+      readDefaultCatalog: () => api().readDefaultCatalog(),
+      readDefaultDemoData: () => api().readDefaultDemoData(),
     },
   };
 }

@@ -1,6 +1,14 @@
 // @marginalia/ports
-// プラットフォーム境界のポートインターフェース（純粋TS型・依存ゼロ）。
+// プラットフォーム境界のポートインターフェース（純粋TS型）。
 // Electron / Web / Tauri がこれらを実装し、UI/コアはこの契約のみに依存する。
+import type {
+  ManifestInfo,
+  TemplateInfo,
+  CatalogData,
+  BuildResult,
+  DependencyStatus,
+  ProjectDetectionResult,
+} from '@marginalia/shared-types';
 
 /** 操作結果の共通形（既存 IPC 戻り値の {success,error} を踏襲） */
 export interface Result {
@@ -10,6 +18,10 @@ export interface Result {
 
 /** 購読解除関数 */
 export type Unsubscribe = () => void;
+
+// ---------------------------------------------------------------------------
+// 注釈ストレージ
+// ---------------------------------------------------------------------------
 
 /**
  * 注釈サイドカー(.mrgl)のデータ。シリアライズ可能な緩い型に留め、
@@ -41,11 +53,97 @@ export interface AnnotationStoragePort {
   write(docPath: string, data: unknown): Promise<Result | boolean | void>;
 }
 
+// ---------------------------------------------------------------------------
+// ビルド実行
+// ---------------------------------------------------------------------------
+
+export interface BuildAllProgressData {
+  current: number;
+  total: number;
+  stem: string;
+  status: string;
+}
+
+export interface RunAllDemosResult {
+  success: boolean;
+  results: Array<{ stem: string; success: boolean; outputPath?: string; error?: string }>;
+  summary?: { total: number; success: number; failed: number };
+  error?: string;
+}
+
+/**
+ * 報告書ビルドの実行ポート。
+ * Electron=python/pandoc を子プロセス実行 / Web=リモートビルドAPI or 無効化。
+ */
+export interface BuildRunnerPort {
+  detectProject(dirPath: string): Promise<ProjectDetectionResult>;
+  listManifests(
+    dirPath: string
+  ): Promise<{ success: boolean; manifests: ManifestInfo[]; error?: string }>;
+  listTemplates(
+    dirPath: string
+  ): Promise<{ success: boolean; templates: TemplateInfo[]; error?: string }>;
+  readCatalog(
+    dirPath: string
+  ): Promise<{ success: boolean; catalog: CatalogData | null; error?: string }>;
+  listSourceFiles(
+    dirPath: string
+  ): Promise<{ success: boolean; files: string[]; error?: string }>;
+  listBibFiles(
+    dirPath: string
+  ): Promise<{ success: boolean; files: { path: string; content: string }[]; error?: string }>;
+  checkDependencies(): Promise<DependencyStatus>;
+  readManifest(
+    manifestPath: string
+  ): Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }>;
+  writeManifest(manifestPath: string, data: Record<string, unknown>): Promise<Result>;
+  createCustomTemplate(dirPath: string, name: string, baseTemplate?: string): Promise<Result>;
+  deleteCustomTemplate(dirPath: string, name: string): Promise<Result>;
+  runBuild(projectRoot: string, manifestPath: string, format: string): Promise<BuildResult>;
+  quickBuildDemo(demoStem: string, format?: string): Promise<BuildResult>;
+  runAllDemos(format?: string): Promise<RunAllDemosResult>;
+  installSample(
+    demoStem: string,
+    targetProjectDir: string
+  ): Promise<{ success: boolean; copiedFiles?: string[]; error?: string }>;
+  // 進捗・トリガーイベント（M5 で UIEventBus に整理予定）
+  onBuildProgress(cb: (data: string) => void): Unsubscribe;
+  onBuildAllProgress(cb: (data: BuildAllProgressData) => void): Unsubscribe;
+  onTriggerBuild(cb: () => void): Unsubscribe;
+}
+
+// ---------------------------------------------------------------------------
+// アプリ内蔵リソース解決（Electron: app.isPackaged/process.resourcesPath を隠蔽）
+// ---------------------------------------------------------------------------
+
+export interface DefaultDemoData {
+  [stem: string]: {
+    manifestYaml: string;
+    sections: { path: string; name: string; content: string | null }[];
+  };
+}
+
+export interface ResourceLocatorPort {
+  readDefaultCatalog(): Promise<{ success: boolean; catalog: CatalogData | null; error?: string }>;
+  readDefaultDemoData(): Promise<{
+    success: boolean;
+    demoData: DefaultDemoData;
+    templateMap: Record<string, string[]>;
+    error?: string;
+  }>;
+}
+
+// ---------------------------------------------------------------------------
+// ポート束
+// ---------------------------------------------------------------------------
+
 /**
  * 全プラットフォームポートの束。
- * M2 時点では annotations のみ。以降のマイルストーンで
- * fs / build / terminal / watcher / updater / kv / bus を追加していく。
+ * M3 時点では annotations / build / resources。以降のマイルストーンで
+ * fs / terminal / watcher / updater / kv / bus を追加していく。
  */
 export interface PlatformPorts {
   annotations: AnnotationStoragePort;
+  build: BuildRunnerPort;
+  resources: ResourceLocatorPort;
 }

@@ -5,6 +5,15 @@ export type EditorMode = 'edit' | 'split' | 'preview';
 export type { Tab, EditorGroup, TabLayout, FileContentCache } from './tabs';
 
 import type { FileContentCache } from './tabs';
+// Build 系の型は @marginalia/shared-types に移行（ElectronAPI 定義で参照する分を import）
+import type {
+  ManifestInfo,
+  TemplateInfo,
+  CatalogData,
+  BuildResult,
+  DependencyStatus,
+  ProjectDetectionResult,
+} from '@marginalia/shared-types';
 
 // ---------------------------------------------------------------------------
 // FileContext (src/contexts/FileContext.tsx) の型
@@ -353,93 +362,18 @@ export interface ElectronAPI {
   onGalleryDataChanged: (callback: () => void) => () => void;
 }
 
-// Build System Types
-export interface ManifestInfo {
-  name: string;
-  path: string;
-  fileName: string;
-  title: string;
-  template: string;
-  style?: string;
-  output: string[];
-  sections: string[];
-  sectionCount: number;
-}
-
-export interface TemplateInfo {
-  name: string;
-  path?: string;
-  description?: string;
-  type?: string;
-  styles?: string[];
-  features?: string[];
-}
-
-export interface TemplateBundleInfo {
-  pandoc?: { pdf?: string; docx?: string };
-  'python-docx'?: { docx?: string };
-}
-
-export interface CatalogData {
-  templates: Record<string, {
-    description: string;
-    type: string;
-    styles?: string[];
-    features?: string[];
-    preview?: string;
-    bundle?: TemplateBundleInfo;
-    _source?: 'builtin' | 'custom';
-  }>;
-  common_params?: Record<string, unknown>;
-}
-
-export interface DocxDirectConfig {
-  'anchor-heading'?: string;
-  'chapter-prefix'?: string | null;
-  'crossref-mode'?: 'seq' | 'text';
-  'first-line-indent'?: number;
-  'page-break-before-h2'?: boolean;
-}
-
-export interface ManifestData {
-  title: string;
-  subtitle?: string;
-  author?: string | string[];
-  date?: string;
-  template: string;
-  style?: string;
-  output: string[];
-  sections: string[];
-  lang?: string;
-  toc?: boolean;
-  organization?: string;
-  version?: string;
-  abstract?: string;
-  'docx-engine'?: 'pandoc' | 'python-docx';
-  'docx-direct'?: DocxDirectConfig;
-  [key: string]: unknown;
-}
-
-export interface BuildResult {
-  success: boolean;
-  outputPath?: string;
-  error?: string;
-  stdout?: string;
-  stderr?: string;
-}
-
-export interface DependencyStatus {
-  python3: boolean;
-  pandoc: boolean;
-  xelatex: boolean;
-  'python-docx'?: boolean;
-  lxml?: boolean;
-}
-
-export interface ProjectDetectionResult {
-  isProject: boolean;
-  projectDir: string | null;
-}
+// Build System Types — 実体は @marginalia/shared-types（M3 で移行）
+export type {
+  ManifestInfo,
+  TemplateInfo,
+  TemplateBundleInfo,
+  CatalogData,
+  DocxDirectConfig,
+  ManifestData,
+  BuildResult,
+  DependencyStatus,
+  ProjectDetectionResult,
+} from '@marginalia/shared-types';
 
 // ---------------------------------------------------------------------------
 // AppStateContext (src/App.tsx) の型
