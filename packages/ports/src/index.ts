@@ -208,6 +208,22 @@ export interface ResourceLocatorPort {
 }
 
 // ---------------------------------------------------------------------------
+// UI イベントバス（メニュー / ネイティブ由来のトリガー）
+// ---------------------------------------------------------------------------
+
+/**
+ * メニュー等のプラットフォーム由来イベントを購読するバス。
+ * Electron=ipcRenderer.on / Web=メニューが無いためキーボードショートカット等で publish。
+ */
+export interface UIEventBus {
+  onNewTerminal(cb: () => void): Unsubscribe;
+  onCloseActiveTab(cb: () => void): Unsubscribe;
+  onOpenGallery(cb: () => void): Unsubscribe;
+  onGalleryApplyTemplate(cb: (templateName: string) => void): Unsubscribe;
+  onGalleryDataChanged(cb: () => void): Unsubscribe;
+}
+
+// ---------------------------------------------------------------------------
 // ポート束
 // ---------------------------------------------------------------------------
 
@@ -223,4 +239,5 @@ export interface PlatformPorts {
   terminal: TerminalPort;
   build: BuildRunnerPort;
   resources: ResourceLocatorPort;
+  bus: UIEventBus;
 }

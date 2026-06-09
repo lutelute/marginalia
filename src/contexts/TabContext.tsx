@@ -400,7 +400,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
           for (const savedTab of savedGroup.tabs) {
             // ファイル存在確認
             try {
-              const exists = await window.electronAPI?.exists(savedTab.filePath);
+              const exists = await ports.fs.exists(savedTab.filePath);
               if (exists) {
                 tabs.push({
                   id: uuidv4(),
@@ -455,7 +455,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
     };
 
     restoreLayout();
-  }, []);
+  }, [ports]);
 
   // --- rootPath 変更時にタブをクリア ---
 
@@ -698,8 +698,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
   // --- Cmd+W でアクティブタブを閉じる ---
 
   useEffect(() => {
-    if (!window.electronAPI?.onCloseActiveTab) return;
-    const cleanup = window.electronAPI.onCloseActiveTab(() => {
+    const cleanup = ports.bus.onCloseActiveTab(() => {
       const ag = layout.groups.find((g) => g.id === layout.activeGroupId) || layout.groups[0];
       if (ag?.activeTabId) {
         const tab = ag.tabs.find((t) => t.id === ag.activeTabId);
@@ -719,7 +718,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
       }
     });
     return cleanup;
-  }, [layout, fileContext]);
+  }, [layout, fileContext, ports]);
 
   const value: TabContextValue = {
     layout,

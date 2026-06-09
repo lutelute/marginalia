@@ -76,5 +76,12 @@ export function createElectronPorts(): PlatformPorts {
       readDefaultCatalog: () => api().readDefaultCatalog(),
       readDefaultDemoData: () => api().readDefaultDemoData(),
     },
+    bus: {
+      onNewTerminal: (cb) => api().onNewTerminal(cb),
+      onCloseActiveTab: (cb) => api().onCloseActiveTab(cb),
+      onOpenGallery: (cb) => api().onOpenGallery(cb),
+      onGalleryApplyTemplate: (cb) => api().onGalleryApplyTemplate(cb),
+      onGalleryDataChanged: (cb) => api().onGalleryDataChanged(cb),
+    },
   };
 }

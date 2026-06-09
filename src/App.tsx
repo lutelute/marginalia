@@ -8,7 +8,7 @@ import { TabProvider, useTab } from './contexts/TabContext';
 import { TerminalProvider } from './contexts/TerminalContext';
 import { useFile } from './contexts/FileContext';
 import { AppStateProvider, useAppState } from './contexts/AppStateContext';
-import { PortsProvider } from './contexts/PortsContext';
+import { PortsProvider, usePorts } from './contexts/PortsContext';
 import { createElectronPorts } from './adapters/electron/createElectronPorts';
 import FileTree from './components/Sidebar/FileTree';
 import ErrorBoundary from './components/common/ErrorBoundary';
@@ -125,36 +125,34 @@ function AppContent({ sidebarWidth, annotationWidth, handleSidebarResize, handle
   const { manifestData, selectedManifestPath, updateManifestData, saveManifest, refreshFromDisk } = useBuild();
   const { rootPath } = useFile();
   const { activeTab, openTerminalTab } = useTab();
+  const ports = usePorts();
   const editorMode = activeTab?.editorMode || 'split';
 
   // ⌘+` で新規ターミナルを開く (メニューからの new-terminal イベント)
   useEffect(() => {
-    if (!window.electronAPI?.onNewTerminal) return;
-    const cleanup = window.electronAPI.onNewTerminal(async () => {
+    const cleanup = ports.bus.onNewTerminal(async () => {
       try {
         const cwd = rootPath || undefined;
-        const result = await window.electronAPI.terminalCreate(cwd);
+        const result = await ports.terminal.create(cwd);
         openTerminalTab(result.sessionId);
       } catch (e) {
         console.error('Failed to create terminal:', e);
       }
     });
     return cleanup;
-  }, [openTerminalTab, rootPath]);
+  }, [openTerminalTab, rootPath, ports]);
 
   // ⌘+Shift+T でギャラリーモーダルを開く (メニューイベント)
   useEffect(() => {
-    if (!window.electronAPI?.onOpenGallery) return;
-    const cleanup = window.electronAPI.onOpenGallery(() => {
+    const cleanup = ports.bus.onOpenGallery(() => {
       openGalleryModal();
     });
     return cleanup;
-  }, [openGalleryModal]);
+  }, [openGalleryModal, ports]);
 
   // ギャラリーウィンドウからテンプレート適用
   useEffect(() => {
-    if (!window.electronAPI?.onGalleryApplyTemplate) return;
-    const cleanup = window.electronAPI.onGalleryApplyTemplate(async (templateName: string) => {
+    const cleanup = ports.bus.onGalleryApplyTemplate(async (templateName: string) => {
       if (manifestData && selectedManifestPath) {
         const updatedData = { ...manifestData, template: templateName };
         updateManifestData(updatedData);
@@ -162,16 +160,15 @@ function AppContent({ sidebarWidth, annotationWidth, handleSidebarResize, handle
       }
     });
     return cleanup;
-  }, [manifestData, selectedManifestPath, updateManifestData, saveManifest]);
+  }, [manifestData, selectedManifestPath, updateManifestData, saveManifest, ports]);
 
   // ギャラリーウィンドウからのデータ変更通知
   useEffect(() => {
-    if (!window.electronAPI?.onGalleryDataChanged) return;
-    const cleanup = window.electronAPI.onGalleryDataChanged(() => {
+    const cleanup = ports.bus.onGalleryDataChanged(() => {
       refreshFromDisk();
     });
     return cleanup;
-  }, [refreshFromDisk]);
+  }, [refreshFromDisk, ports]);
 
   return (
     <>
