@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { usePorts } from '../contexts/PortsContext';
 
 interface PdfViewerProps {
   filePath: string;
@@ -6,6 +7,7 @@ interface PdfViewerProps {
 }
 
 function PdfViewer({ filePath, onClose }: PdfViewerProps) {
+  const ports = usePorts();
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -18,7 +20,7 @@ function PdfViewer({ filePath, onClose }: PdfViewerProps) {
       setLoading(true);
       setError(null);
       try {
-        const base64 = await window.electronAPI.readFileAsBase64(filePath);
+        const base64 = await ports.fs.readFileAsBase64(filePath);
         if (cancelled) return;
 
         const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
@@ -48,7 +50,7 @@ function PdfViewer({ filePath, onClose }: PdfViewerProps) {
         prevUrlRef.current = null;
       }
     };
-  }, [filePath]);
+  }, [filePath, ports]);
 
   const fileName = filePath.split('/').pop() || 'PDF';
 
@@ -59,7 +61,7 @@ function PdfViewer({ filePath, onClose }: PdfViewerProps) {
         <div className="pdf-viewer-actions">
           <button
             className="pdf-viewer-btn"
-            onClick={() => window.electronAPI.openPath(filePath)}
+            onClick={() => ports.shell.openPath(filePath)}
             title="外部アプリで開く"
           >
             <ExternalIcon />

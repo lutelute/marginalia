@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useFile } from '../../contexts/FileContext';
 import { useTab } from '../../contexts/TabContext';
+import { usePorts } from '../../contexts/PortsContext';
 
 interface FileTreeItemNode {
   name: string;
@@ -21,6 +22,7 @@ function FileTreeItem({ item, depth }: { item: FileTreeItemNode; depth: number }
   const renameInputRef = useRef<HTMLInputElement>(null);
   const { currentFile, renameFileWithAnnotations, moveFileWithAnnotations } = useFile();
   const { openTab, updateTabPath } = useTab();
+  const ports = usePorts();
 
   const isActive = currentFile === item.path;
   const paddingLeft = 12 + depth * 16;
@@ -84,7 +86,7 @@ function FileTreeItem({ item, depth }: { item: FileTreeItemNode; depth: number }
   // 移動ダイアログ
   const handleMove = useCallback(async () => {
     setContextMenu(null);
-    const destDir = await window.electronAPI.openDirectory();
+    const destDir = await ports.fs.pickDirectory();
     if (!destDir) return;
 
     const newPath = destDir + '/' + item.name;
@@ -94,7 +96,7 @@ function FileTreeItem({ item, depth }: { item: FileTreeItemNode; depth: number }
     } else if (!result.success) {
       alert(result.error);
     }
-  }, [item.path, item.name, moveFileWithAnnotations, updateTabPath]);
+  }, [item.path, item.name, moveFileWithAnnotations, updateTabPath, ports]);
 
   const isHidden = item.isHidden;
 
