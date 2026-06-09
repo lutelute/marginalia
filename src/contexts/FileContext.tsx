@@ -7,6 +7,7 @@ import {
   FileStats,
 } from '../types';
 import { humanizeError } from '../utils/errorMessages';
+import { usePorts } from './PortsContext';
 
 /**
  * UI 表示用のユーザー向けメッセージを取得する。
@@ -202,6 +203,7 @@ function fileReducer(state: FileState, action: FileAction): FileState {
 
 export function FileProvider({ children, showHiddenFiles = false, excludePatterns = [] }: { children: React.ReactNode; showHiddenFiles?: boolean; excludePatterns?: string[] }) {
   const [state, dispatch] = useReducer(fileReducer, initialState);
+  const ports = usePorts();
   const [recentFolders, setRecentFolders] = useState<string[]>([]);
   const [fileMetadata, setFileMetadata] = useState<FileStats | null>(null);
   // 自アプリの保存直後タイムスタンプ（外部変更イベントの自己起因ガード用）
@@ -233,7 +235,7 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
         try {
           dispatch({ type: 'SET_ROOT_PATH', payload: DEV_SAMPLES_PATH });
           dispatch({ type: 'SET_LOADING', payload: true });
-          const tree = await window.electronAPI.readDirectory(DEV_SAMPLES_PATH, { showHidden: showHiddenFiles, systemDirs: excludePatterns });
+          const tree = await ports.fs.readDirectory(DEV_SAMPLES_PATH, { showHidden: showHiddenFiles, systemDirs: excludePatterns });
           dispatch({ type: 'SET_FILE_TREE', payload: tree });
           console.log('[DEV] Loaded dev-samples folder automatically');
         } catch (error) {
@@ -242,7 +244,7 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
       };
       loadDevSamples();
     }
-  }, [devInitialized, state.rootPath]);
+  }, [devInitialized, state.rootPath, ports]);
 
   // 最近のフォルダをlocalStorageに保存
   const saveRecentFolder = useCallback((folderPath: string) => {
@@ -261,7 +263,7 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
       dispatch({ type: 'SET_ROOT_PATH', payload: dirPath });
       dispatch({ type: 'SET_LOADING', payload: true });
 
-      const tree = await window.electronAPI.readDirectory(dirPath, { showHidden: showHiddenFiles, systemDirs: excludePatterns });
+      const tree = await ports.fs.readDirectory(dirPath, { showHidden: showHiddenFiles, systemDirs: excludePatterns });
       dispatch({ type: 'SET_FILE_TREE', payload: tree });
       saveRecentFolder(dirPath);
     } catch (error) {
@@ -273,23 +275,23 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
         return updated;
       });
     }
-  }, [saveRecentFolder]);
+  }, [saveRecentFolder, ports]);
 
   const openDirectory = useCallback(async () => {
     try {
-      const dirPath = await window.electronAPI.openDirectory();
+      const dirPath = await ports.fs.pickDirectory();
       if (!dirPath) return;
 
       dispatch({ type: 'SET_ROOT_PATH', payload: dirPath });
       dispatch({ type: 'SET_LOADING', payload: true });
 
-      const tree = await window.electronAPI.readDirectory(dirPath, { showHidden: showHiddenFiles, systemDirs: excludePatterns });
+      const tree = await ports.fs.readDirectory(dirPath, { showHidden: showHiddenFiles, systemDirs: excludePatterns });
       dispatch({ type: 'SET_FILE_TREE', payload: tree });
       saveRecentFolder(dirPath);
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: getErrorMessage(error) });
     }
-  }, [saveRecentFolder, showHiddenFiles, excludePatterns]);
+  }, [saveRecentFolder, showHiddenFiles, excludePatterns, ports]);
 
   // 最近のフォルダをクリア
   const clearRecentFolders = useCallback(() => {
@@ -300,14 +302,14 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
   // ファイルメタデータを取得
   const loadFileMetadata = useCallback(async (filePath: string) => {
     try {
-      const result = await window.electronAPI.getFileStats(filePath);
+      const result = await ports.fs.getFileStats(filePath);
       if (result?.success && result.stats) {
         setFileMetadata(result.stats);
       }
     } catch (error) {
       console.error('Failed to load file metadata:', error);
     }
-  }, []);
+  }, [ports]);
 
   // 孤立ファイル（.marginaliaのみ存在）を検出
   const detectOrphanedFiles = useCallback(async (dirPath: string) => {
@@ -316,7 +318,7 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
     try {
       // ディレクトリ内の全ファイルを再帰的に取得
       const findMarginaliaFiles = async (path: string): Promise<string[]> => {
-        const result = await window.electronAPI.readDirectory(path);
+        const result = await ports.fs.readDirectory(path);
         if (!result || !Array.isArray(result)) return [];
 
         const marginaliaFiles: string[] = [];
@@ -341,11 +343,11 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
         const mdPath = marginaliaPath.replace(/\.marginalia$/, '');
 
         // .mdファイルが存在するかチェック
-        const exists = await window.electronAPI.exists(mdPath);
+        const exists = await ports.fs.exists(mdPath);
 
         if (!exists) {
           // .marginaliaファイルの内容を読み込み
-          const result = await window.electronAPI.readMarginalia(mdPath);
+          const result = await ports.annotations.read(mdPath);
 
           if (result?.success && result.data) {
             orphaned.push({
@@ -363,14 +365,14 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
     } catch (error) {
       console.error('Failed to detect orphaned files:', error);
     }
-  }, []);
+  }, [ports]);
 
   const refreshDirectory = useCallback(async () => {
     if (!state.rootPath) return;
 
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
-      const tree = await window.electronAPI.readDirectory(state.rootPath, { showHidden: showHiddenFiles, systemDirs: excludePatterns });
+      const tree = await ports.fs.readDirectory(state.rootPath, { showHidden: showHiddenFiles, systemDirs: excludePatterns });
       dispatch({ type: 'SET_FILE_TREE', payload: tree });
 
       // 孤立ファイルを検出
@@ -378,7 +380,7 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: getErrorMessage(error) });
     }
-  }, [state.rootPath, detectOrphanedFiles, showHiddenFiles, excludePatterns]);
+  }, [state.rootPath, detectOrphanedFiles, showHiddenFiles, excludePatterns, ports]);
 
   const openFile = useCallback(async (filePath: string) => {
     try {
@@ -399,8 +401,8 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
       }
 
       const [fileResult, statsResult] = await Promise.all([
-        window.electronAPI.readFile(filePath),
-        window.electronAPI.getFileStats(filePath),
+        ports.fs.readFile(filePath),
+        ports.fs.getFileStats(filePath),
       ]);
 
       if (fileResult.success && fileResult.content !== undefined) {
@@ -425,14 +427,14 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: getErrorMessage(error) });
     }
-  }, [state.contentCache]);
+  }, [state.contentCache, ports]);
 
   // 外部変更を検出
   const checkExternalChange = useCallback(async () => {
     if (!state.currentFile || !state.lastKnownMtime) return false;
 
     try {
-      const result = await window.electronAPI.getFileStats(state.currentFile);
+      const result = await ports.fs.getFileStats(state.currentFile);
       if (result?.success && result.stats?.mtime) {
         if (result.stats.mtime !== state.lastKnownMtime) {
           dispatch({ type: 'EXTERNAL_CHANGE_DETECTED' });
@@ -443,7 +445,7 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
       console.error('Failed to check external change:', error);
     }
     return false;
-  }, [state.currentFile, state.lastKnownMtime]);
+  }, [state.currentFile, state.lastKnownMtime, ports]);
 
   // ファイルを再読み込み
   const reloadFile = useCallback(async () => {
@@ -453,8 +455,8 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
       dispatch({ type: 'SET_LOADING', payload: true });
 
       const [fileResult, statsResult] = await Promise.all([
-        window.electronAPI.readFile(state.currentFile),
-        window.electronAPI.getFileStats(state.currentFile),
+        ports.fs.readFile(state.currentFile),
+        ports.fs.getFileStats(state.currentFile),
       ]);
 
       if (fileResult.success && fileResult.content !== undefined) {
@@ -472,7 +474,7 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: getErrorMessage(error) });
     }
-  }, [state.currentFile]);
+  }, [state.currentFile, ports]);
 
   // 外部変更フラグをクリア
   const clearExternalChange = useCallback(() => {
@@ -519,7 +521,7 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
         history: orphanedFile.history,
       };
 
-      await window.electronAPI.writeMarginalia(newFilePath, data);
+      await ports.annotations.write(newFilePath, data);
 
       // 古い.marginaliaファイルは現状では削除せず、孤立リストからのみ除外する
       // （専用の deleteFile API が必要なため、ここでは未対応）
@@ -530,7 +532,7 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
       console.error('Failed to reassign orphaned file:', error);
       return { success: false, error: getErrorMessage(error) };
     }
-  }, []);
+  }, [ports]);
 
   // 孤立ファイルを削除（.marginaliaファイルを削除）
   const deleteOrphanedFile = useCallback(async (orphanedFile: OrphanedFileData) => {
@@ -539,7 +541,7 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
       const marginaliaPath = orphanedFile.filePath + '.marginalia';
 
       // deleteBackupを流用（または専用のdelete APIが必要）
-      const result = await window.electronAPI.deleteBackup(marginaliaPath);
+      const result = await ports.fs.deleteBackup(marginaliaPath);
 
       if (result?.success) {
         dispatch({ type: 'REMOVE_ORPHANED_FILE', payload: orphanedFile.filePath });
@@ -552,12 +554,12 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
       console.error('Failed to delete orphaned file:', error);
       return { success: false, error: getErrorMessage(error) };
     }
-  }, []);
+  }, [ports]);
 
   // ファイルリネーム（注釈も自動追従）
   const renameFileWithAnnotations = useCallback(async (filePath: string, newName: string) => {
     try {
-      const result = await window.electronAPI.renameFile(filePath, newName);
+      const result = await ports.fs.renameFile(filePath, newName);
       if (!result?.success) {
         if (result?.error) console.error('[FileContext] renameFile failed:', result.error);
         return { success: false, error: result?.error ? humanizeError(result.error) : 'リネーム失敗' };
@@ -568,19 +570,19 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
       }
       // ファイルツリーを更新
       if (state.rootPath) {
-        const tree = await window.electronAPI.readDirectory(state.rootPath, { showHidden: showHiddenFiles, systemDirs: excludePatterns });
+        const tree = await ports.fs.readDirectory(state.rootPath, { showHidden: showHiddenFiles, systemDirs: excludePatterns });
         dispatch({ type: 'SET_FILE_TREE', payload: tree });
       }
       return { success: true, newPath: result.newPath };
     } catch (error) {
       return { success: false, error: getErrorMessage(error) };
     }
-  }, [state.currentFile, state.rootPath, showHiddenFiles, excludePatterns]);
+  }, [state.currentFile, state.rootPath, showHiddenFiles, excludePatterns, ports]);
 
   // ファイル移動（注釈も自動追従）
   const moveFileWithAnnotations = useCallback(async (oldPath: string, newPath: string) => {
     try {
-      const result = await window.electronAPI.moveFile(oldPath, newPath);
+      const result = await ports.fs.moveFile(oldPath, newPath);
       if (!result?.success) {
         if (result?.error) console.error('[FileContext] moveFile failed:', result.error);
         return { success: false, error: result?.error ? humanizeError(result.error) : '移動失敗' };
@@ -589,14 +591,14 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
         dispatch({ type: 'SET_CURRENT_FILE', payload: result.newPath });
       }
       if (state.rootPath) {
-        const tree = await window.electronAPI.readDirectory(state.rootPath, { showHidden: showHiddenFiles, systemDirs: excludePatterns });
+        const tree = await ports.fs.readDirectory(state.rootPath, { showHidden: showHiddenFiles, systemDirs: excludePatterns });
         dispatch({ type: 'SET_FILE_TREE', payload: tree });
       }
       return { success: true, newPath: result.newPath };
     } catch (error) {
       return { success: false, error: getErrorMessage(error) };
     }
-  }, [state.currentFile, state.rootPath, showHiddenFiles, excludePatterns]);
+  }, [state.currentFile, state.rootPath, showHiddenFiles, excludePatterns, ports]);
 
   // showHiddenFiles / excludePatterns 変更時にファイルツリーを再読み込み
   useEffect(() => {
@@ -618,21 +620,20 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
 
   // 開いているファイルが変わったら fs.watch を張り替える（リアルタイム外部変更検出）
   useEffect(() => {
-    if (!window.electronAPI?.watchFile) return;
 
     const filePath = state.currentFile;
     if (!filePath) {
-      window.electronAPI.unwatchFile?.();
+      ports.watcher.unwatch();
       return;
     }
 
     // 監視開始（main 側で既存 watcher を閉じて張り替え）
-    window.electronAPI.watchFile(filePath).catch((e) => {
+    ports.watcher.watch(filePath).catch((e) => {
       console.warn('Failed to watch file:', getErrorMessage(e));
     });
 
     // 外部変更イベント受信
-    const unsubscribe = window.electronAPI.onFileChangedExternally?.((changedPath) => {
+    const unsubscribe = ports.watcher.onChanged((changedPath) => {
       // 監視対象が切り替わった後の遅延イベントは無視
       if (changedPath !== filePath) return;
       // 自アプリの保存直後（SELF_SAVE_IGNORE_MS 以内）のイベントは自己起因として無視
@@ -641,10 +642,10 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
     });
 
     return () => {
-      unsubscribe?.();
-      window.electronAPI.unwatchFile?.();
+      unsubscribe();
+      ports.watcher.unwatch();
     };
-  }, [state.currentFile]);
+  }, [state.currentFile, ports]);
 
   const updateContent = useCallback((content: string) => {
     dispatch({ type: 'UPDATE_CONTENT', payload: content });
@@ -663,7 +664,7 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
     try {
       // 保存直前にタイムスタンプを記録（自己起因の外部変更イベントを無視するため）
       lastSaveAtRef.current = Date.now();
-      const result = await window.electronAPI.writeFile(state.currentFile, state.content);
+      const result = await ports.fs.writeFile(state.currentFile, state.content);
       if (result.success) {
         dispatch({ type: 'MARK_SAVED' });
         // キャッシュも保存済みに
@@ -675,7 +676,7 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: getErrorMessage(error) });
     }
-  }, [state.currentFile, state.content]);
+  }, [state.currentFile, state.content, ports]);
 
   // キャッシュにファイルを読み込み（グローバル currentFile を変更しない）
   const loadFileToCache = useCallback(async (filePath: string) => {
@@ -683,8 +684,8 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
 
     try {
       const [fileResult, statsResult] = await Promise.all([
-        window.electronAPI.readFile(filePath),
-        window.electronAPI.getFileStats(filePath),
+        ports.fs.readFile(filePath),
+        ports.fs.getFileStats(filePath),
       ]);
 
       if (fileResult.success && fileResult.content !== undefined) {
@@ -697,7 +698,7 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
     } catch (error) {
       console.error('Failed to load file to cache:', error);
     }
-  }, [state.contentCache]);
+  }, [state.contentCache, ports]);
 
   // 指定ファイルのキャッシュ内容を更新
   const updateCachedContent = useCallback((filePath: string, newContent: string) => {
@@ -721,7 +722,7 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
       if (filePath === state.currentFile) {
         lastSaveAtRef.current = Date.now();
       }
-      const result = await window.electronAPI.writeFile(filePath, cached.content);
+      const result = await ports.fs.writeFile(filePath, cached.content);
       if (result.success) {
         dispatch({ type: 'MARK_CACHED_SAVED', payload: filePath });
         if (state.currentFile === filePath) {
@@ -734,7 +735,7 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: getErrorMessage(error) });
     }
-  }, [state.contentCache, state.currentFile]);
+  }, [state.contentCache, state.currentFile, ports]);
 
   // キャッシュからファイルを除去
   const closeFile = useCallback((filePath: string) => {

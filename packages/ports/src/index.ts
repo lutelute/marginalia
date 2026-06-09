@@ -8,6 +8,14 @@ import type {
   BuildResult,
   DependencyStatus,
   ProjectDetectionResult,
+  FileTreeNode,
+  FileStats,
+  ReadDirectoryOptions,
+  BackupListResult,
+  RestoreBackupResult,
+  PreviewBackupResult,
+  CreateBackupResult,
+  RestoreMarginaliaBackupResult,
 } from '@marginalia/shared-types';
 
 /** 操作結果の共通形（既存 IPC 戻り値の {success,error} を踏襲） */
@@ -51,6 +59,55 @@ export interface AnnotationStoragePort {
   } | null>;
   // 保存はシリアライズ可能な任意データを受ける（呼び出し側が厳密型 MarginaliaFileV2 を渡す）
   write(docPath: string, data: unknown): Promise<Result | boolean | void>;
+}
+
+// ---------------------------------------------------------------------------
+// ファイルシステム
+// ---------------------------------------------------------------------------
+
+/**
+ * ワークスペースのファイル操作ポート。
+ * Electron=node:fs / Web=File System Access API / Tauri=fs crate で実装。
+ */
+export interface FileSystemPort {
+  pickDirectory(): Promise<string | null>;
+  readDirectory(path: string, options?: ReadDirectoryOptions): Promise<FileTreeNode[]>;
+  readFile(path: string): Promise<{ success: boolean; content?: string; error?: string }>;
+  writeFile(path: string, content: string): Promise<Result>;
+  exists(path: string): Promise<boolean>;
+  getFileStats(
+    path: string
+  ): Promise<{ success: boolean; stats?: FileStats; error?: string } | null>;
+  renameFile(
+    filePath: string,
+    newName: string
+  ): Promise<{ success: boolean; newPath?: string; error?: string }>;
+  moveFile(
+    oldPath: string,
+    newPath: string
+  ): Promise<{ success: boolean; newPath?: string; error?: string }>;
+  readFileAsBase64(path: string): Promise<string>;
+  // ファイル本体・注釈のバックアップ
+  listBackups(path: string): Promise<BackupListResult>;
+  restoreBackup(backupPath: string, targetPath: string): Promise<RestoreBackupResult>;
+  previewBackup(backupPath: string): Promise<PreviewBackupResult>;
+  createBackup(path: string): Promise<CreateBackupResult>;
+  deleteBackup(backupPath: string): Promise<Result>;
+  listMarginaliaBackups(path: string): Promise<BackupListResult>;
+  restoreMarginaliaBackup(
+    backupPath: string,
+    filePath: string
+  ): Promise<RestoreMarginaliaBackupResult>;
+}
+
+/**
+ * 開いているファイルの外部変更監視ポート。
+ * Electron=fs.watch / Web=File System Access API or ポーリング。
+ */
+export interface FileWatcherPort {
+  watch(filePath: string): Promise<Result>;
+  unwatch(): Promise<Result>;
+  onChanged(cb: (filePath: string) => void): Unsubscribe;
 }
 
 // ---------------------------------------------------------------------------
@@ -139,11 +196,13 @@ export interface ResourceLocatorPort {
 
 /**
  * 全プラットフォームポートの束。
- * M3 時点では annotations / build / resources。以降のマイルストーンで
- * fs / terminal / watcher / updater / kv / bus を追加していく。
+ * M4 時点では annotations / fs / watcher / build / resources。
+ * 以降のマイルストーンで terminal / updater / kv / bus を追加していく。
  */
 export interface PlatformPorts {
   annotations: AnnotationStoragePort;
+  fs: FileSystemPort;
+  watcher: FileWatcherPort;
   build: BuildRunnerPort;
   resources: ResourceLocatorPort;
 }
