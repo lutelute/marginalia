@@ -8,6 +8,8 @@ import { TabProvider, useTab } from './contexts/TabContext';
 import { TerminalProvider } from './contexts/TerminalContext';
 import { useFile } from './contexts/FileContext';
 import { AppStateProvider, useAppState } from './contexts/AppStateContext';
+import { PortsProvider } from './contexts/PortsContext';
+import { createElectronPorts } from './adapters/electron/createElectronPorts';
 import FileTree from './components/Sidebar/FileTree';
 import ErrorBoundary from './components/common/ErrorBoundary';
 // ProjectPanel は SidebarGallery に統合済み
@@ -25,6 +27,10 @@ import { appShellStyles } from './components/appStyles';
 
 // ギャラリー専用ウィンドウモード判定
 const isGalleryWindow = new URLSearchParams(window.location.search).get('view') === 'gallery';
+
+// プラットフォームポート（Electron実装）。各メソッドは呼び出し時に
+// window.electronAPI を参照するため module スコープ生成で問題ない。
+const platformPorts = createElectronPorts();
 
 function SettingsModalWrapper() {
   const { isSettingsOpen } = useSettings();
@@ -44,10 +50,12 @@ function BuildProviderBridge({ children }: { children: React.ReactNode }) {
 function App() {
   // ギャラリー専用ウィンドウモードの場合は専用レイアウトを返す
   // 注: フックを持つ本体は MainApp に分離（早期returnとフックの共存は rules-of-hooks 違反）
-  if (isGalleryWindow) {
-    return <GalleryWindowApp />;
-  }
-  return <MainApp />;
+  // PortsProvider を最外に置き、全 Context がポート経由でプラットフォームへアクセスする
+  return (
+    <PortsProvider ports={platformPorts}>
+      {isGalleryWindow ? <GalleryWindowApp /> : <MainApp />}
+    </PortsProvider>
+  );
 }
 
 function MainApp() {

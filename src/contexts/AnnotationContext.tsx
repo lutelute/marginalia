@@ -13,7 +13,8 @@ import {
   MarginaliaFileV2,
   PendingSelectionV2,
 } from '../types/annotations';
-import { migrateFile } from '../utils/migration';
+import { migrateFile } from '@marginalia/annotation-core';
+import { usePorts } from './PortsContext';
 import {
   anchorAnnotation,
   getAnnotationExactText,
@@ -239,6 +240,7 @@ const AnnotationContext = createContext<AnnotationContextValue | null>(null);
 export function AnnotationProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(annotationReducer, initialState);
   const { currentFile, content } = useFile();
+  const ports = usePorts();
 
   // ファイル変更時: 現在のデータをキャッシュに保存してから切替
   const prevFileRef = React.useRef<string | null>(null);
@@ -283,7 +285,7 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
 
     const loadData = async () => {
       dispatch({ type: 'SET_LOADING', payload: true });
-      const result = await window.electronAPI?.readMarginalia(currentFile);
+      const result = await ports.annotations.read(currentFile);
       if (result && result.success && result.data) {
         if (result.needsMigration) {
           // V1→V2マイグレーション
@@ -314,7 +316,7 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
     };
 
     loadData();
-  }, [currentFile]);
+  }, [currentFile, ports]);
 
   // データ変更時に自動保存（V2形式）
   const saveMarginalia = useCallback(async () => {
@@ -330,8 +332,8 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
       history: state.history,
     };
 
-    await window.electronAPI?.writeMarginalia(currentFile, data);
-  }, [currentFile, state.annotations, state.history]);
+    await ports.annotations.write(currentFile, data);
+  }, [currentFile, state.annotations, state.history, ports]);
 
   // annotations/history変更時に保存 + キャッシュ更新
   useEffect(() => {
