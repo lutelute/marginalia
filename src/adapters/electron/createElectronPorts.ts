@@ -1,4 +1,4 @@
-import type { PlatformPorts } from '@marginalia/ports';
+import type { PlatformPorts, UpdateCheckData } from '@marginalia/ports';
 
 /**
  * 既存 window.electronAPI を PlatformPorts に適合させる薄いブリッジ。
@@ -82,6 +82,22 @@ export function createElectronPorts(): PlatformPorts {
       onOpenGallery: (cb) => api().onOpenGallery(cb),
       onGalleryApplyTemplate: (cb) => api().onGalleryApplyTemplate(cb),
       onGalleryDataChanged: (cb) => api().onGalleryDataChanged(cb),
+    },
+    updater: {
+      isAvailable: () => typeof window !== 'undefined' && window.electronAPI !== undefined,
+      check: () =>
+        api().checkForUpdates() as Promise<{ success: boolean; data?: UpdateCheckData; error?: string }>,
+      download: (downloadUrl) => api().downloadUpdate(downloadUrl),
+      install: () => api().installUpdate(),
+      restart: () => api().restartApp(),
+      getAppVersion: () => api().getAppVersion(),
+      onProgress: (cb) => api().onUpdateProgress(cb),
+    },
+    // localStorage 同期バックエンドを Promise でラップ（Web では IndexedDB 等に差し替え可能）
+    kv: {
+      get: (key) => Promise.resolve(localStorage.getItem(key)),
+      set: (key, value) => Promise.resolve(localStorage.setItem(key, value)),
+      remove: (key) => Promise.resolve(localStorage.removeItem(key)),
     },
   };
 }

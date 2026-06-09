@@ -276,10 +276,13 @@ export interface ElectronAPI {
   restoreMarginaliaBackup: (backupPath: string, filePath: string) => Promise<RestoreMarginaliaBackupResult>;
   // アップデート関連
   checkForUpdates: () => Promise<{ success: boolean; data?: unknown; error?: string }>;
-  downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
-  installUpdate: () => void;
+  downloadUpdate: (downloadUrl: string) => Promise<{ success: boolean; error?: string }>;
+  installUpdate: () => Promise<{ success: boolean; error?: string }>;
+  restartApp: () => void;
   getAppVersion: () => Promise<string>;
-  onUpdateStatus: (callback: (data: UpdateStatus) => void) => () => void;
+  onUpdateProgress: (
+    callback: (data: { percent: number; downloadedMB: string; totalMB: string }) => void
+  ) => () => void;
   // ターミナル関連
   terminalCreate: (cwd?: string) => Promise<{ sessionId: string; pid: number }>;
   terminalWrite: (sessionId: string, data: string) => Promise<void>;

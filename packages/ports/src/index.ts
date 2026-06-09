@@ -224,6 +224,50 @@ export interface UIEventBus {
 }
 
 // ---------------------------------------------------------------------------
+// アプリ更新（自動アップデート）
+// ---------------------------------------------------------------------------
+
+export interface UpdateCheckData {
+  available?: boolean;
+  version?: string;
+  releaseName?: string;
+  releaseUrl?: string;
+  downloadUrl?: string;
+  error?: string;
+}
+
+/**
+ * アプリ自動更新ポート。
+ * Electron=GitHub Releases から .dmg / Web=常に利用不可（isAvailable=false）。
+ */
+export interface UpdaterPort {
+  /** 更新機構が利用可能か（Electron=true / Web=false） */
+  isAvailable(): boolean;
+  check(): Promise<{ success: boolean; data?: UpdateCheckData; error?: string }>;
+  download(downloadUrl: string): Promise<Result>;
+  install(): Promise<Result>;
+  restart(): void;
+  getAppVersion(): Promise<string>;
+  onProgress(
+    cb: (data: { percent: number; downloadedMB: string; totalMB: string }) => void
+  ): Unsubscribe;
+}
+
+// ---------------------------------------------------------------------------
+// Key-Value ストア（localStorage 抽象）
+// ---------------------------------------------------------------------------
+
+/**
+ * 設定・レイアウト等の永続化ポート。async 統一で Web=IndexedDB にも対応可能。
+ * Electron/Web 初期実装は localStorage 同期バックエンドを Promise でラップする。
+ */
+export interface KeyValueStore {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string): Promise<void>;
+  remove(key: string): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
 // ポート束
 // ---------------------------------------------------------------------------
 
@@ -240,4 +284,6 @@ export interface PlatformPorts {
   build: BuildRunnerPort;
   resources: ResourceLocatorPort;
   bus: UIEventBus;
+  updater: UpdaterPort;
+  kv: KeyValueStore;
 }
