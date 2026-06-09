@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { SettingsProvider, useSettings } from '../contexts/SettingsContext';
+import { usePorts } from '../contexts/PortsContext';
 import { ToastProvider } from '../contexts/ToastContext';
 import { BuildProvider, useBuild } from '../contexts/BuildContext';
 import { useAppState } from '../contexts/AppStateContext';
@@ -8,11 +9,12 @@ import ToastContainer from './common/ToastContainer';
 
 // --- ギャラリー専用ウィンドウ ---
 export function GalleryWindowApp() {
+  const ports = usePorts();
   const [projectDir, setProjectDir] = useState<string | null>(null);
 
   useEffect(() => {
-    window.electronAPI?.getGalleryProjectDir().then((dir) => setProjectDir(dir));
-  }, []);
+    ports.gallery.getProjectDir().then((dir) => setProjectDir(dir));
+  }, [ports]);
 
   if (!projectDir) {
     return (
@@ -34,6 +36,7 @@ export function GalleryWindowApp() {
 }
 
 function GalleryWindowContent() {
+  const ports = usePorts();
   const { effectiveTheme } = useSettings();
 
   useEffect(() => {
@@ -45,8 +48,8 @@ function GalleryWindowContent() {
   }, [effectiveTheme]);
 
   const handleApply = useCallback((templateName: string) => {
-    window.electronAPI?.galleryApplyTemplate(templateName);
-  }, []);
+    ports.gallery.applyTemplate(templateName);
+  }, [ports]);
 
   const handleClose = useCallback(() => {
     window.close();
@@ -75,15 +78,16 @@ function GalleryWindowContent() {
 
 // --- ギャラリーモーダル ---
 export function GalleryModal() {
+  const ports = usePorts();
   const { isGalleryModalOpen, closeGalleryModal } = useAppState();
   const { projectDir } = useBuild();
 
   const handlePopOut = useCallback(() => {
     closeGalleryModal();
     if (projectDir) {
-      window.electronAPI?.openGalleryWindow(projectDir);
+      ports.gallery.openWindow(projectDir);
     }
-  }, [closeGalleryModal, projectDir]);
+  }, [closeGalleryModal, projectDir, ports]);
 
   useEffect(() => {
     if (!isGalleryModalOpen) return;

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useBuild } from '../../contexts/BuildContext';
+import { usePorts } from '../../contexts/PortsContext';
 import SampleExplorer from './SampleExplorer';
 import BuildGuides from './BuildGuides';
 import { getDemoStem } from './templateGalleryUtils';
@@ -7,6 +8,7 @@ import type { SourceFilter, GalleryTab, PreviewTab, TemplateGalleryProps } from 
 import { templateGalleryStyles } from './templateGalleryStyles';
 
 function TemplateGallery({ onApplyTemplate, onPopOut, onClose, isModal, isWindow }: TemplateGalleryProps = {}) {
+  const ports = usePorts();
   const { effectiveCatalog, projectDir, manifestData, selectedManifestPath, updateManifestData, saveManifest, createCustomTemplate, deleteCustomTemplate, defaultDemoData, defaultTemplateMap, quickBuildDemo, installSample, buildStatus } = useBuild();
   const catalog = effectiveCatalog;
   const [previewTemplate, setPreviewTemplate] = useState<string | null>(null);
@@ -52,7 +54,7 @@ function TemplateGallery({ onApplyTemplate, onPopOut, onClose, isModal, isWindow
     if (projectDir && stem) {
       const manifestPath = `${projectDir}/projects/${stem}.yaml`;
       try {
-        const yamlResult = await window.electronAPI.readFile(manifestPath);
+        const yamlResult = await ports.fs.readFile(manifestPath);
         const yamlText = yamlResult.content ?? '';
         setPreviewYaml(yamlText);
 
@@ -65,7 +67,7 @@ function TemplateGallery({ onApplyTemplate, onPopOut, onClose, isModal, isWindow
           for (const sp of sectionPaths) {
             try {
               const fullPath = `${projectDir}/${sp}`;
-              const mdResult = await window.electronAPI.readFile(fullPath);
+              const mdResult = await ports.fs.readFile(fullPath);
               mdResults.push({ name: sp.split('/').pop() || sp, content: mdResult.content ?? '' });
             } catch {
               mdResults.push({ name: sp.split('/').pop() || sp, content: '(読み込み失敗)' });
@@ -92,7 +94,7 @@ function TemplateGallery({ onApplyTemplate, onPopOut, onClose, isModal, isWindow
     }
 
     setPreviewLoading(false);
-  }, [projectDir, catalog, demoStemFor, defaultDemoData]);
+  }, [projectDir, catalog, demoStemFor, defaultDemoData, ports]);
 
   const handleExpandPreview = useCallback((name: string) => {
     if (previewTemplate === name) {
@@ -147,7 +149,7 @@ function TemplateGallery({ onApplyTemplate, onPopOut, onClose, isModal, isWindow
       setShowCreateDialog(false);
       setNewTemplateName('');
       setBaseTemplate('');
-      if (isWindow) window.electronAPI?.galleryNotifyChange();
+      if (isWindow) ports.gallery.notifyChange();
     } else {
       alert(result.error || '作成に失敗しました');
     }
@@ -158,7 +160,7 @@ function TemplateGallery({ onApplyTemplate, onPopOut, onClose, isModal, isWindow
     setDeleting(name);
     await deleteCustomTemplate(name);
     setDeleting(null);
-    if (isWindow) window.electronAPI?.galleryNotifyChange();
+    if (isWindow) ports.gallery.notifyChange();
   };
 
   return (
