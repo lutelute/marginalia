@@ -41,6 +41,14 @@ export function createElectronPorts(): PlatformPorts {
       unwatch: () => api().unwatchFile(),
       onChanged: (cb) => api().onFileChangedExternally(cb),
     },
+    terminal: {
+      create: (cwd) => api().terminalCreate(cwd),
+      write: (sessionId, data) => api().terminalWrite(sessionId, data),
+      resize: (sessionId, cols, rows) => api().terminalResize(sessionId, cols, rows),
+      destroy: (sessionId) => api().terminalDestroy(sessionId),
+      onData: (sessionId, cb) => api().onTerminalData(sessionId, cb),
+      onExit: (sessionId, cb) => api().onTerminalExit(sessionId, cb),
+    },
     build: {
       detectProject: (dirPath) => api().detectProject(dirPath),
       listManifests: (dirPath) => api().listManifests(dirPath),

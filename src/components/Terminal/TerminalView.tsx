@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
+import { usePorts } from '../../contexts/PortsContext';
 
 interface TerminalViewProps {
   sessionId: string;
@@ -37,6 +38,7 @@ export default function TerminalView({ sessionId, isActive }: TerminalViewProps)
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const ports = usePorts();
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -65,30 +67,22 @@ export default function TerminalView({ sessionId, isActive }: TerminalViewProps)
     });
 
     // Listen for PTY data
-    const api = window.electronAPI;
-    let removeDataListener: (() => void) | undefined;
-    let removeExitListener: (() => void) | undefined;
+    const removeDataListener = ports.terminal.onData(sessionId, (data: string) => {
+      terminal.write(data);
+    });
 
-    if (api?.onTerminalData) {
-      removeDataListener = api.onTerminalData(sessionId, (data: string) => {
-        terminal.write(data);
-      });
-    }
-
-    if (api?.onTerminalExit) {
-      removeExitListener = api.onTerminalExit(sessionId, () => {
-        terminal.write('\r\n\x1b[90m[Process exited]\x1b[0m\r\n');
-      });
-    }
+    const removeExitListener = ports.terminal.onExit(sessionId, () => {
+      terminal.write('\r\n\x1b[90m[Process exited]\x1b[0m\r\n');
+    });
 
     // Send user input to PTY
     const onDataDisposable = terminal.onData((data) => {
-      api?.terminalWrite?.(sessionId, data);
+      ports.terminal.write(sessionId, data);
     });
 
     // Resize PTY on terminal resize
     const onResizeDisposable = terminal.onResize(({ cols, rows }) => {
-      api?.terminalResize?.(sessionId, cols, rows);
+      ports.terminal.resize(sessionId, cols, rows);
     });
 
     // ResizeObserver for auto-fit
@@ -107,13 +101,13 @@ export default function TerminalView({ sessionId, isActive }: TerminalViewProps)
       resizeObserver.disconnect();
       onDataDisposable.dispose();
       onResizeDisposable.dispose();
-      removeDataListener?.();
-      removeExitListener?.();
+      removeDataListener();
+      removeExitListener();
       terminal.dispose();
       terminalRef.current = null;
       fitAddonRef.current = null;
     };
-  }, [sessionId]);
+  }, [sessionId, ports]);
 
   // Re-fit when becoming active
   useEffect(() => {

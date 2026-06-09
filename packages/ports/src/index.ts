@@ -111,6 +111,23 @@ export interface FileWatcherPort {
 }
 
 // ---------------------------------------------------------------------------
+// ターミナル（PTY）
+// ---------------------------------------------------------------------------
+
+/**
+ * 疑似端末セッションのポート。
+ * Electron=node-pty / Web=no-op or websocket / Tauri=pty crate。
+ */
+export interface TerminalPort {
+  create(cwd?: string): Promise<{ sessionId: string; pid: number }>;
+  write(sessionId: string, data: string): Promise<void>;
+  resize(sessionId: string, cols: number, rows: number): Promise<void>;
+  destroy(sessionId: string): Promise<void>;
+  onData(sessionId: string, cb: (data: string) => void): Unsubscribe;
+  onExit(sessionId: string, cb: (exitCode: number, signal: number) => void): Unsubscribe;
+}
+
+// ---------------------------------------------------------------------------
 // ビルド実行
 // ---------------------------------------------------------------------------
 
@@ -203,6 +220,7 @@ export interface PlatformPorts {
   annotations: AnnotationStoragePort;
   fs: FileSystemPort;
   watcher: FileWatcherPort;
+  terminal: TerminalPort;
   build: BuildRunnerPort;
   resources: ResourceLocatorPort;
 }

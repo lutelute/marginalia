@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useReducer, useCallback } from 'react';
+import { usePorts } from './PortsContext';
 
 // Types
 interface TerminalSession {
@@ -85,12 +86,10 @@ let sessionCounter = 0;
 
 export function TerminalProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(terminalReducer, initialState);
+  const ports = usePorts();
 
   const createTerminal = useCallback(async (cwd?: string) => {
-    const api = window.electronAPI;
-    if (!api?.terminalCreate) return;
-
-    const result = await api.terminalCreate(cwd);
+    const result = await ports.terminal.create(cwd);
     sessionCounter++;
     dispatch({
       type: 'CREATE_SESSION',
@@ -100,15 +99,12 @@ export function TerminalProvider({ children }: { children: React.ReactNode }) {
         pid: result.pid,
       },
     });
-  }, []);
+  }, [ports]);
 
   const destroyTerminal = useCallback(async (sessionId: string) => {
-    const api = window.electronAPI;
-    if (!api?.terminalDestroy) return;
-
-    await api.terminalDestroy(sessionId);
+    await ports.terminal.destroy(sessionId);
     dispatch({ type: 'DESTROY_SESSION', payload: sessionId });
-  }, []);
+  }, [ports]);
 
   const setActiveSession = useCallback((sessionId: string) => {
     dispatch({ type: 'SET_ACTIVE_SESSION', payload: sessionId });
