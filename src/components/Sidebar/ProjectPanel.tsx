@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useBuild } from '../../contexts/BuildContext';
+import { usePorts } from '../../contexts/PortsContext';
 import { useTab } from '../../contexts/TabContext';
 import { useAppState } from '../../contexts/AppStateContext';
 
@@ -10,6 +11,7 @@ function getOutputPath(projectDir: string, manifestPath: string, fmt: string) {
 }
 
 function ProjectPanel() {
+  const ports = usePorts();
   const {
     isProject,
     manifests,
@@ -39,14 +41,14 @@ function ProjectPanel() {
       for (const fmt of (m.output || ['pdf'])) {
         const p = getOutputPath(projectDir, m.path, fmt);
         try {
-          if (await window.electronAPI.exists(p)) {
+          if (await ports.fs.exists(p)) {
             found[`${m.path}:${fmt}`] = p;
           }
         } catch { /* ignore */ }
       }
     }
     setExistingOutputs(found);
-  }, [projectDir, manifests]);
+  }, [projectDir, manifests, ports]);
 
   // マニフェスト読み込み後にチェック
   useEffect(() => { checkOutputs(); }, [checkOutputs]);
@@ -86,7 +88,7 @@ function ProjectPanel() {
     if (outputPath.endsWith('.pdf')) {
       openTab(outputPath);
     } else {
-      window.electronAPI.openPath(outputPath);
+      ports.shell.openPath(outputPath);
     }
   };
 

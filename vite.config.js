@@ -19,10 +19,16 @@ export default defineConfig({
   server: {
     port: 5190,
     strictPort: true,
+    fs: {
+      // workspaces のソース(.ts)を dev で直接読めるようモノレポルートを許可
+      allow: [path.resolve(__dirname)],
+    },
   },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      '@marginalia/shared-types': path.resolve(__dirname, './packages/shared-types/src/index.ts'),
+      '@marginalia/ports': path.resolve(__dirname, './packages/ports/src/index.ts'),
     },
   },
 });

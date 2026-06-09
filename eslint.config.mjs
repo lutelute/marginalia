@@ -7,6 +7,7 @@ export default tseslint.config(
   {
     ignores: [
       'dist/**',
+      'packages/*/dist/**',
       'release/**',
       'node_modules/**',
       'report-build-system/**',
@@ -17,9 +18,9 @@ export default tseslint.config(
     ],
   },
 
-  // TypeScript / React (renderer)
+  // TypeScript / React (renderer + packages)
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}', 'packages/**/src/**/*.{ts,tsx}'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     plugins: { 'react-hooks': reactHooks },
     rules: {
@@ -96,7 +97,7 @@ export default tseslint.config(
 
   // Electron main process (CommonJS / Node)
   {
-    files: ['electron/**/*.js', 'scripts/**/*.js'],
+    files: ['apps/electron/**/*.js', 'scripts/**/*.js'],
     extends: [js.configs.recommended],
     languageOptions: {
       sourceType: 'commonjs',

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useBuild } from '../../contexts/BuildContext';
+import { usePorts } from '../../contexts/PortsContext';
 import { useTab } from '../../contexts/TabContext';
 
 type SubTab = 'build' | 'templates';
@@ -11,6 +12,7 @@ function getOutputPath(projectDir: string, manifestPath: string, fmt: string) {
 }
 
 function SidebarGallery({ onOpenFullGallery }: { onOpenFullGallery: () => void }) {
+  const ports = usePorts();
   const {
     effectiveCatalog, projectDir,
     runAllDemos,
@@ -45,14 +47,14 @@ function SidebarGallery({ onOpenFullGallery }: { onOpenFullGallery: () => void }
       for (const fmt of (m.output || ['pdf'])) {
         const p = getOutputPath(projectDir, m.path, fmt);
         try {
-          if (await window.electronAPI?.exists(p)) {
+          if (await ports.fs.exists(p)) {
             found[`${m.path}:${fmt}`] = p;
           }
         } catch { /* ignore */ }
       }
     }
     setExistingOutputs(found);
-  }, [projectDir, manifests]);
+  }, [projectDir, manifests, ports]);
 
   useEffect(() => { checkOutputs(); }, [checkOutputs]);
   useEffect(() => {
@@ -85,7 +87,7 @@ function SidebarGallery({ onOpenFullGallery }: { onOpenFullGallery: () => void }
     if (outputPath.endsWith('.pdf')) {
       openTab(outputPath);
     } else {
-      window.electronAPI?.openPath(outputPath);
+      ports.shell.openPath(outputPath);
     }
   };
 

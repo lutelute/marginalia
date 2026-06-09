@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useCallback, useMemo, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useFile } from './FileContext';
+import { usePorts } from './PortsContext';
 import { Tab, EditorGroup, TabLayout, SplitDirection } from '../types/tabs';
 import type { FileContextValue } from '../types';
 
@@ -326,6 +327,7 @@ const TabContext = createContext<TabContextValue | null>(null);
 export function TabProvider({ children }: { children: React.ReactNode }) {
   const [layout, dispatch] = useReducer(tabReducer, null, createDefaultLayout);
   const fileContext = useFile() as FileContextValue;
+  const ports = usePorts();
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isRestoredRef = useRef(false);
 
@@ -398,7 +400,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
           for (const savedTab of savedGroup.tabs) {
             // ファイル存在確認
             try {
-              const exists = await window.electronAPI?.exists(savedTab.filePath);
+              const exists = await ports.fs.exists(savedTab.filePath);
               if (exists) {
                 tabs.push({
                   id: uuidv4(),
@@ -453,7 +455,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
     };
 
     restoreLayout();
-  }, []);
+  }, [ports]);
 
   // --- rootPath 変更時にタブをクリア ---
 
@@ -587,7 +589,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
     }
     // ターミナルタブを閉じる時は PTY を破棄
     if (tab?.fileType === 'terminal' && tab.terminalSessionId) {
-      window.electronAPI?.terminalDestroy(tab.terminalSessionId);
+      ports.terminal.destroy(tab.terminalSessionId);
     }
     dispatch({ type: 'CLOSE_TAB', payload: { tabId, groupId } });
     // FileContext のキャッシュからも除去（他のタブで開いていない場合のみ）
@@ -599,7 +601,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
         fileContext.closeFile(tab.filePath);
       }
     }
-  }, [layout.groups, fileContext]);
+  }, [layout.groups, fileContext, ports]);
 
   const activateTab = useCallback((tabId: string, groupId: string) => {
     // タブのファイルパスを取得
@@ -696,8 +698,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
   // --- Cmd+W でアクティブタブを閉じる ---
 
   useEffect(() => {
-    if (!window.electronAPI?.onCloseActiveTab) return;
-    const cleanup = window.electronAPI.onCloseActiveTab(() => {
+    const cleanup = ports.bus.onCloseActiveTab(() => {
       const ag = layout.groups.find((g) => g.id === layout.activeGroupId) || layout.groups[0];
       if (ag?.activeTabId) {
         const tab = ag.tabs.find((t) => t.id === ag.activeTabId);
@@ -717,7 +718,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
       }
     });
     return cleanup;
-  }, [layout, fileContext]);
+  }, [layout, fileContext, ports]);
 
   const value: TabContextValue = {
     layout,

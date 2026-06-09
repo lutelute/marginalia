@@ -32,8 +32,9 @@ npm-debug.log*
 tmp/
 temp/
 
-# npm artifacts (duplicate lock files from Finder copies etc.)
+# Finder の重複コピー（"name 2.ext" 形式）— typecheck/build を汚染するため除外
 package-lock [0-9].json
+* [0-9].*
 
 # Generated binary docs (Markdown is the source of truth)
 docs/*.docx

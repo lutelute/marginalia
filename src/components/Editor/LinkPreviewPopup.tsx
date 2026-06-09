@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { usePorts } from '../../contexts/PortsContext';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -11,6 +12,7 @@ interface LinkPreviewPopupProps {
 }
 
 function LinkPreviewPopup({ href, position, rootPath, currentFile, onClose }: LinkPreviewPopupProps) {
+  const ports = usePorts();
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +67,7 @@ function LinkPreviewPopup({ href, position, rootPath, currentFile, onClose }: Li
       }
 
       try {
-        const result = await window.electronAPI?.readFile(targetPath);
+        const result = await ports.fs.readFile(targetPath);
         if (result?.success) {
           // 最初の500文字程度を抽出
           const preview = (result.content ?? '').slice(0, 1000);
@@ -80,7 +82,7 @@ function LinkPreviewPopup({ href, position, rootPath, currentFile, onClose }: Li
     };
 
     loadContent();
-  }, [href, rootPath, currentFile]);
+  }, [href, rootPath, currentFile, ports]);
 
   // 外部クリックで閉じる
   useEffect(() => {

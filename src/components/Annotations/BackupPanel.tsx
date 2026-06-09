@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useFile } from '../../contexts/FileContext';
 import { useAnnotation } from '../../contexts/AnnotationContext';
+import { usePorts } from '../../contexts/PortsContext';
 import DiffPanel from './DiffPanel';
 import type { BackupInfo } from '../../types';
 
@@ -10,6 +11,7 @@ type PreviewBackup = BackupInfo & { type: 'file' | 'annotation' };
 function BackupPanel() {
   const { currentFile, openFile, content: currentContent } = useFile();
   const { annotations } = useAnnotation();
+  const ports = usePorts();
   const [backupType, setBackupType] = useState<BackupType>('file');
   const [fileBackups, setFileBackups] = useState<BackupInfo[]>([]);
   const [annotationBackups, setAnnotationBackups] = useState<BackupInfo[]>([]);
@@ -22,27 +24,27 @@ function BackupPanel() {
   const loadFileBackups = useCallback(async () => {
     if (!currentFile) return;
     try {
-      const result = await window.electronAPI.listBackups(currentFile);
+      const result = await ports.fs.listBackups(currentFile);
       if (result.success) {
         setFileBackups(result.backups);
       }
     } catch (error) {
       console.error('Failed to load file backups:', error);
     }
-  }, [currentFile]);
+  }, [currentFile, ports]);
 
   // 注釈バックアップ一覧を取得
   const loadAnnotationBackups = useCallback(async () => {
     if (!currentFile) return;
     try {
-      const result = await window.electronAPI.listMarginaliaBackups(currentFile);
+      const result = await ports.fs.listMarginaliaBackups(currentFile);
       if (result.success) {
         setAnnotationBackups(result.backups);
       }
     } catch (error) {
       console.error('Failed to load annotation backups:', error);
     }
-  }, [currentFile]);
+  }, [currentFile, ports]);
 
   // バックアップを読み込み
   const loadBackups = useCallback(async () => {
@@ -61,7 +63,7 @@ function BackupPanel() {
   // ファイルバックアップをプレビュー
   const handlePreviewFile = async (backup: BackupInfo) => {
     try {
-      const result = await window.electronAPI.previewBackup(backup.path);
+      const result = await ports.fs.previewBackup(backup.path);
       if (result.success) {
         setPreviewContent(result.content);
         setPreviewBackupData({ ...backup, type: 'file' });
@@ -79,7 +81,7 @@ function BackupPanel() {
     }
 
     try {
-      const result = await window.electronAPI.restoreBackup(backup.path, currentFile);
+      const result = await ports.fs.restoreBackup(backup.path, currentFile);
       if (result.success) {
         await openFile(currentFile);
         loadBackups();
@@ -99,7 +101,7 @@ function BackupPanel() {
     }
 
     try {
-      const result = await window.electronAPI.restoreMarginaliaBackup(backup.path, currentFile);
+      const result = await ports.fs.restoreMarginaliaBackup(backup.path, currentFile);
       if (result.success) {
         // ページをリロードして注釈を再読み込み
         window.location.reload();
@@ -116,7 +118,7 @@ function BackupPanel() {
     }
 
     try {
-      const result = await window.electronAPI.deleteBackup(backup.path);
+      const result = await ports.fs.deleteBackup(backup.path);
       if (result.success) {
         loadBackups();
         if (previewBackup?.id === backup.id) {
@@ -133,7 +135,7 @@ function BackupPanel() {
   const handleCreateBackup = async () => {
     if (!currentFile) return;
     try {
-      const result = await window.electronAPI.createBackup(currentFile);
+      const result = await ports.fs.createBackup(currentFile);
       if (result.success) {
         loadBackups();
       }

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { usePorts } from '../../contexts/PortsContext';
 
 interface TemplatePreviewPopupProps {
   previewFile: string;
@@ -7,6 +8,7 @@ interface TemplatePreviewPopupProps {
 }
 
 function TemplatePreviewPopup({ previewFile, projectDir, anchorRect }: TemplatePreviewPopupProps) {
+  const ports = usePorts();
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +22,7 @@ function TemplatePreviewPopup({ previewFile, projectDir, anchorRect }: TemplateP
       setError(null);
       try {
         const filePath = `${projectDir}/report-build-system/output/${previewFile}`;
-        const base64 = await window.electronAPI.readFileAsBase64(filePath);
+        const base64 = await ports.fs.readFileAsBase64(filePath);
         if (cancelled) return;
 
         const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
@@ -48,7 +50,7 @@ function TemplatePreviewPopup({ previewFile, projectDir, anchorRect }: TemplateP
         prevUrlRef.current = null;
       }
     };
-  }, [previewFile, projectDir]);
+  }, [previewFile, projectDir, ports]);
 
   // ドロップダウンの右隣に配置
   const top = anchorRect.top;

@@ -5,6 +5,26 @@ export type EditorMode = 'edit' | 'split' | 'preview';
 export type { Tab, EditorGroup, TabLayout, FileContentCache } from './tabs';
 
 import type { FileContentCache } from './tabs';
+// Build 系の型は @marginalia/shared-types に移行（ElectronAPI 定義で参照する分を import）
+import type {
+  ManifestInfo,
+  TemplateInfo,
+  CatalogData,
+  BuildResult,
+  DependencyStatus,
+  ProjectDetectionResult,
+} from '@marginalia/shared-types';
+// File 系の型も @marginalia/shared-types に移行（ElectronAPI で参照する分を import）
+import type {
+  FileTreeNode,
+  FileStats,
+  ReadDirectoryOptions,
+  BackupListResult,
+  RestoreBackupResult,
+  PreviewBackupResult,
+  CreateBackupResult,
+  RestoreMarginaliaBackupResult,
+} from '@marginalia/shared-types';
 
 // ---------------------------------------------------------------------------
 // FileContext (src/contexts/FileContext.tsx) の型
@@ -150,60 +170,18 @@ export interface AnnotationFilter {
   author: string | null;
 }
 
-// File Types
-export interface FileTreeNode {
-  name: string;
-  path: string;
-  type: 'file' | 'directory';
-  isHidden?: boolean;
-  isSystem?: boolean;
-  children?: FileTreeNode[];
-}
-
-export interface FileStats {
-  fileName?: string;
-  filePath?: string;
-  size?: number;
-  sizeFormatted?: string;
-  created?: string;
-  modified?: string;
-  mtime?: string;
-  lines?: number;
-  words?: number;
-  chars?: number;
-  [key: string]: unknown;
-}
-
-export interface BackupInfo {
-  id: string;
-  path: string;
-  fileName: string;
-  createdAt: string;
-  /** ファイルバックアップ（listBackups）にのみ存在 */
-  size?: number;
-  /** 注釈バックアップ（listMarginaliaBackups）にのみ存在 */
-  annotationCount?: number;
-}
-
-export type BackupListResult =
-  | { success: true; backups: BackupInfo[] }
-  | { success: false; error: string };
-
-export type PreviewBackupResult =
-  | { success: true; content: string; createdAt: string; fileName: string }
-  | { success: false; error: string };
-
-export type RestoreBackupResult =
-  | { success: true; content: string }
-  | { success: false; error: string };
-
-export type RestoreMarginaliaBackupResult =
-  | { success: true; data: unknown }
-  | { success: false; error: string };
-
-export type CreateBackupResult =
-  | { success: true; backupPath: string }
-  | { success: false; error: string };
+// File Types — 実体は @marginalia/shared-types（M4 で移行）
+export type {
+  FileTreeNode,
+  FileStats,
+  BackupInfo,
+  BackupListResult,
+  PreviewBackupResult,
+  RestoreBackupResult,
+  RestoreMarginaliaBackupResult,
+  CreateBackupResult,
+  ReadDirectoryOptions,
+} from '@marginalia/shared-types';
 
 // Settings Types
 export interface EditorSettings {
@@ -274,11 +252,6 @@ export type UpdateStatus =
   | { status: 'error'; message: string };
 
 // Electron API Types
-export interface ReadDirectoryOptions {
-  showHidden?: boolean;
-  systemDirs?: string[];
-}
-
 export interface ElectronAPI {
   openDirectory: () => Promise<string | null>;
   readDirectory: (path: string, options?: ReadDirectoryOptions) => Promise<FileTreeNode[]>;
@@ -303,10 +276,13 @@ export interface ElectronAPI {
   restoreMarginaliaBackup: (backupPath: string, filePath: string) => Promise<RestoreMarginaliaBackupResult>;
   // アップデート関連
   checkForUpdates: () => Promise<{ success: boolean; data?: unknown; error?: string }>;
-  downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
-  installUpdate: () => void;
+  downloadUpdate: (downloadUrl: string) => Promise<{ success: boolean; error?: string }>;
+  installUpdate: () => Promise<{ success: boolean; error?: string }>;
+  restartApp: () => void;
   getAppVersion: () => Promise<string>;
-  onUpdateStatus: (callback: (data: UpdateStatus) => void) => () => void;
+  onUpdateProgress: (
+    callback: (data: { percent: number; downloadedMB: string; totalMB: string }) => void
+  ) => () => void;
   // ターミナル関連
   terminalCreate: (cwd?: string) => Promise<{ sessionId: string; pid: number }>;
   terminalWrite: (sessionId: string, data: string) => Promise<void>;
@@ -353,93 +329,18 @@ export interface ElectronAPI {
   onGalleryDataChanged: (callback: () => void) => () => void;
 }
 
-// Build System Types
-export interface ManifestInfo {
-  name: string;
-  path: string;
-  fileName: string;
-  title: string;
-  template: string;
-  style?: string;
-  output: string[];
-  sections: string[];
-  sectionCount: number;
-}
-
-export interface TemplateInfo {
-  name: string;
-  path?: string;
-  description?: string;
-  type?: string;
-  styles?: string[];
-  features?: string[];
-}
-
-export interface TemplateBundleInfo {
-  pandoc?: { pdf?: string; docx?: string };
-  'python-docx'?: { docx?: string };
-}
-
-export interface CatalogData {
-  templates: Record<string, {
-    description: string;
-    type: string;
-    styles?: string[];
-    features?: string[];
-    preview?: string;
-    bundle?: TemplateBundleInfo;
-    _source?: 'builtin' | 'custom';
-  }>;
-  common_params?: Record<string, unknown>;
-}
-
-export interface DocxDirectConfig {
-  'anchor-heading'?: string;
-  'chapter-prefix'?: string | null;
-  'crossref-mode'?: 'seq' | 'text';
-  'first-line-indent'?: number;
-  'page-break-before-h2'?: boolean;
-}
-
-export interface ManifestData {
-  title: string;
-  subtitle?: string;
-  author?: string | string[];
-  date?: string;
-  template: string;
-  style?: string;
-  output: string[];
-  sections: string[];
-  lang?: string;
-  toc?: boolean;
-  organization?: string;
-  version?: string;
-  abstract?: string;
-  'docx-engine'?: 'pandoc' | 'python-docx';
-  'docx-direct'?: DocxDirectConfig;
-  [key: string]: unknown;
-}
-
-export interface BuildResult {
-  success: boolean;
-  outputPath?: string;
-  error?: string;
-  stdout?: string;
-  stderr?: string;
-}
-
-export interface DependencyStatus {
-  python3: boolean;
-  pandoc: boolean;
-  xelatex: boolean;
-  'python-docx'?: boolean;
-  lxml?: boolean;
-}
-
-export interface ProjectDetectionResult {
-  isProject: boolean;
-  projectDir: string | null;
-}
+// Build System Types — 実体は @marginalia/shared-types（M3 で移行）
+export type {
+  ManifestInfo,
+  TemplateInfo,
+  TemplateBundleInfo,
+  CatalogData,
+  DocxDirectConfig,
+  ManifestData,
+  BuildResult,
+  DependencyStatus,
+  ProjectDetectionResult,
+} from '@marginalia/shared-types';
 
 // ---------------------------------------------------------------------------
 // AppStateContext (src/App.tsx) の型

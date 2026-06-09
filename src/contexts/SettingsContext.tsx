@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { User, USER_COLORS } from '../types';
 import { v4 as uuidv4 } from 'uuid';
+import { usePorts } from './PortsContext';
 
 // 設定オブジェクトの型（DEFAULT_SETTINGS の構造から導出）
 type SettingsState = typeof DEFAULT_SETTINGS;
@@ -70,36 +71,7 @@ const IS_DEVELOPMENT = import.meta.env.DEV;
 const APP_VERSION = __APP_VERSION__;
 const GITHUB_REPO = 'lutelute/Marginalia';
 
-// Electronアプリかどうかを判定
-const isElectron = () => {
-  return typeof window !== 'undefined' && window.electronAPI !== undefined;
-};
-
-// checkForUpdates が返す data の形（preload / updateManager に合わせる）
-interface UpdateCheckData {
-  available?: boolean;
-  version?: string;
-  releaseName?: string;
-  releaseUrl?: string;
-  downloadUrl?: string;
-  error?: string;
-}
-
-// アップデート関連で利用する electronAPI のサブセット
-// （src/types の ElectronAPI を変更せず、このファイル内で利用するメソッドのみ型付けする）
-interface UpdateElectronAPI {
-  checkForUpdates: () => Promise<{ success: boolean; data?: UpdateCheckData; error?: string }>;
-  downloadUpdate: (downloadUrl: string) => Promise<{ success: boolean; error?: string }>;
-  installUpdate: () => Promise<{ success: boolean; error?: string }>;
-  restartApp: () => void;
-  onUpdateProgress: (
-    callback: (data: { percent: number; downloadedMB: string; totalMB: string }) => void
-  ) => () => void;
-}
-
-// アップデート関連メソッドへ型付きでアクセスするためのヘルパー
-const updateAPI = (): UpdateElectronAPI | undefined =>
-  window.electronAPI as unknown as UpdateElectronAPI | undefined;
+// 更新機構へのアクセスは ports.updater 経由（プラットフォーム非依存）。
 
 // デフォルトユーザー
 const DEFAULT_USER: User = {
@@ -187,6 +159,7 @@ function deepMerge<T extends Record<string, any>>(defaults: T, saved: Partial<T>
 }
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
+  const ports = usePorts();
   const [settings, setSettings] = useState<SettingsState>(() => {
     const saved = localStorage.getItem('marginalia-settings');
     if (saved) {
@@ -338,24 +311,24 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   // Electronアップデート進捗イベントを監視
   useEffect(() => {
-    if (!isElectron()) return;
+    if (!ports.updater.isAvailable()) return;
 
-    const cleanup = updateAPI()?.onUpdateProgress((data) => {
+    const cleanup = ports.updater.onProgress((data) => {
       setDownloadProgress(data.percent);
     });
 
     return () => {
       if (cleanup) cleanup();
     };
-  }, []);
+  }, [ports]);
 
   const checkForUpdates = useCallback(async () => {
-    if (!isElectron()) return null;
+    if (!ports.updater.isAvailable()) return null;
 
     setIsCheckingUpdate(true);
     setUpdateStatus('checking');
     try {
-      const result = await updateAPI()?.checkForUpdates();
+      const result = await ports.updater.check();
 
       if (result?.success && result.data) {
         const data = result.data;
@@ -400,11 +373,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setIsCheckingUpdate(false);
     }
     return null;
-  }, []);
+  }, [ports]);
 
   // アップデートをダウンロード
   const downloadUpdate = useCallback(async () => {
-    if (!isElectron()) return;
+    if (!ports.updater.isAvailable()) return;
 
     if (!downloadUrl) {
       setUpdateInfo(prev => ({
@@ -420,7 +393,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setUpdateStatus('downloading');
 
     try {
-      const result = await updateAPI()?.downloadUpdate(downloadUrl);
+      const result = await ports.updater.download(downloadUrl);
       if (result?.success) {
         setIsDownloading(false);
         setDownloadProgress(100);
@@ -442,22 +415,22 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       }));
       setUpdateStatus('error');
     }
-  }, [downloadUrl]);
+  }, [downloadUrl, ports]);
 
   // アップデートをインストール
   const installUpdate = useCallback(async () => {
-    if (!isElectron()) return;
+    if (!ports.updater.isAvailable()) return;
 
     setIsInstalling(true);
     setUpdateStatus('installing');
 
     try {
-      const result = await updateAPI()?.installUpdate();
+      const result = await ports.updater.install();
       if (result?.success) {
         // インストール成功、再起動が必要
         setUpdateStatus('installed');
         // 自動で再起動
-        updateAPI()?.restartApp();
+        ports.updater.restart();
       } else {
         setIsInstalling(false);
         setUpdateInfo(prev => ({
@@ -474,7 +447,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       }));
       setUpdateStatus('error');
     }
-  }, []);
+  }, [ports]);
 
   // 設定モーダルの開閉
   const openSettings = useCallback(() => setIsSettingsOpen(true), []);
@@ -525,7 +498,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     downloadUrl,
     downloadUpdate,
     installUpdate,
-    isElectronApp: isElectron(),
+    isElectronApp: ports.updater.isAvailable(),
     // ユーザー管理
     users,
     currentUser,

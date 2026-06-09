@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { detectVersion, needsMigration, migrateAnnotation, migrateFile } from './migration';
-import type { LegacyAnnotation, MarginaliaFileV1 } from '../types/annotations';
+import type { LegacyAnnotation, MarginaliaFileV1 } from './annotations';
 
 const DOC = 'first line\nsecond line with target text\nthird line\ntarget text again';
 
