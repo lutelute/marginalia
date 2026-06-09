@@ -97,7 +97,7 @@ export default tseslint.config(
 
   // Electron main process (CommonJS / Node)
   {
-    files: ['electron/**/*.js', 'scripts/**/*.js'],
+    files: ['apps/electron/**/*.js', 'scripts/**/*.js'],
     extends: [js.configs.recommended],
     languageOptions: {
       sourceType: 'commonjs',

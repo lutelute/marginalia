@@ -52,7 +52,7 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5190');
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'));
   }
 }
 
@@ -480,7 +480,7 @@ ipcMain.handle('build:read-default-catalog', async () => {
     if (app.isPackaged) {
       catalogPath = path.join(process.resourcesPath, 'report-build-system', 'templates', 'catalog.yaml');
     } else {
-      catalogPath = path.join(__dirname, '..', 'report-build-system', 'templates', 'catalog.yaml');
+      catalogPath = path.join(__dirname, '..', '..', 'report-build-system', 'templates', 'catalog.yaml');
     }
 
     if (!fsSync.existsSync(catalogPath)) {
@@ -523,7 +523,7 @@ ipcMain.handle('build:read-default-demo-data', async () => {
     if (app.isPackaged) {
       baseDir = path.join(process.resourcesPath, 'report-build-system');
     } else {
-      baseDir = path.join(__dirname, '..', 'report-build-system');
+      baseDir = path.join(__dirname, '..', '..', 'report-build-system');
     }
 
     const projectsDir = path.join(baseDir, 'projects');
@@ -638,7 +638,7 @@ ipcMain.handle('gallery:open-window', async (event, projectDir) => {
   if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
     galleryWindow.loadURL('http://localhost:5190/?view=gallery');
   } else {
-    galleryWindow.loadFile(path.join(__dirname, '../dist/index.html'), { search: '?view=gallery' });
+    galleryWindow.loadFile(path.join(__dirname, '../../dist/index.html'), { search: '?view=gallery' });
   }
 
   galleryWindow.on('closed', () => {
@@ -672,7 +672,7 @@ ipcMain.handle('build:quick-build-demo', async (event, demoStem, format) => {
     if (app.isPackaged) {
       baseDir = path.join(process.resourcesPath, 'report-build-system');
     } else {
-      baseDir = path.join(__dirname, '..', 'report-build-system');
+      baseDir = path.join(__dirname, '..', '..', 'report-build-system');
     }
 
     const manifestPath = path.join(baseDir, 'projects', `${demoStem}.yaml`);
@@ -701,7 +701,7 @@ ipcMain.handle('build:run-all-demos', async (event, format) => {
     if (app.isPackaged) {
       baseDir = path.join(process.resourcesPath, 'report-build-system');
     } else {
-      baseDir = path.join(__dirname, '..', 'report-build-system');
+      baseDir = path.join(__dirname, '..', '..', 'report-build-system');
     }
 
     const projectsDir = path.join(baseDir, 'projects');
@@ -772,7 +772,7 @@ ipcMain.handle('build:install-sample', async (event, demoStem, targetProjectDir)
     if (app.isPackaged) {
       baseDir = path.join(process.resourcesPath, 'report-build-system');
     } else {
-      baseDir = path.join(__dirname, '..', 'report-build-system');
+      baseDir = path.join(__dirname, '..', '..', 'report-build-system');
     }
 
     const manifestPath = path.join(baseDir, 'projects', `${demoStem}.yaml`);

@@ -2,7 +2,7 @@
   "name": "marginalia",
   "version": "1.5.1",
   "description": "Markdown編集ツール - 校閲・コメント・バージョン管理機能付き",
-  "main": "electron/main.js",
+  "main": "apps/electron/main.js",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -16,9 +16,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src electron scripts",
-    "format": "prettier --write src electron scripts",
-    "format:check": "prettier --check src electron scripts",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "build:prod": "cross-env NODE_ENV=production vite build",
     "preview": "vite preview",
     "electron": "electron .",
@@ -73,7 +73,7 @@
     },
     "files": [
       "dist/**/*",
-      "electron/**/*",
+      "apps/electron/**/*",
       "package.json"
     ],
     "asarUnpack": [
