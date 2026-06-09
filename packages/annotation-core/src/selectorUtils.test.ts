@@ -10,8 +10,8 @@ import {
   rebuildSelectors,
   isSelectorDrifted,
 } from './selectorUtils';
-import type { TextPositionSelector } from '../types/annotations';
-import type { AnnotationV2 } from '../types/annotations';
+import type { TextPositionSelector } from './annotations';
+import type { AnnotationV2 } from './annotations';
 
 const DOC = [
   '# タイトル',
