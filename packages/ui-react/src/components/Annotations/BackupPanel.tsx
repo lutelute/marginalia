@@ -299,6 +299,7 @@ function BackupPanel() {
             newLabel="現在"
             onClose={() => setShowDiff(false)}
             onRestore={() => handleRestoreFile(previewBackup)}
+            annotations={annotations}
           />
         </div>
       )}

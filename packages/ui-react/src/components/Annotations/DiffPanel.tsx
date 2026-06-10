@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import DiffViewer from './DiffViewer';
 import { computeDiff } from '../../utils/diff';
+import { mapAnnotationsToLines } from '@marginalia/annotation-core';
+import type { AnnotationV2 } from '../../types/annotations';
 
 interface DiffPanelProps {
   oldContent: string;
@@ -9,6 +11,8 @@ interface DiffPanelProps {
   newLabel?: string;
   onClose: () => void;
   onRestore?: () => void;
+  /** 変更後（newContent）に重ねて表示する注釈。差分行ガターにマーカー表示 */
+  annotations?: AnnotationV2[];
 }
 
 function DiffPanel({
@@ -18,12 +22,19 @@ function DiffPanel({
   newLabel = '現在',
   onClose,
   onRestore,
+  annotations,
 }: DiffPanelProps) {
   const [viewMode, setViewMode] = useState<'unified' | 'side-by-side'>('unified');
 
   const diffResult = useMemo(() => {
     return computeDiff(oldContent, newContent);
   }, [oldContent, newContent]);
+
+  // 注釈を「変更後」テキストの行に割り当てる（アンカー解決込み）
+  const annotationsByNewLine = useMemo(() => {
+    if (!annotations || annotations.length === 0) return undefined;
+    return mapAnnotationsToLines(annotations, newContent);
+  }, [annotations, newContent]);
 
   return (
     <div className="diff-panel">
@@ -61,7 +72,7 @@ function DiffPanel({
       </div>
 
       <div className="diff-panel-content">
-        <DiffViewer diffResult={diffResult} viewMode={viewMode} />
+        <DiffViewer diffResult={diffResult} viewMode={viewMode} annotationsByNewLine={annotationsByNewLine} />
       </div>
 
       <style>{`

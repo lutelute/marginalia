@@ -1,12 +1,41 @@
 import React from 'react';
 import { DiffResult, DiffLine, SideBySidePair, createSideBySidePairs } from '../../utils/diff';
+import type { AnnotationV2 } from '../../types/annotations';
+import { getTypeConfig } from '../../constants/annotationTypes';
+
+/** 行番号（変更後）→ その行に掛かる注釈。DiffPanel が mapAnnotationsToLines で生成 */
+export type AnnotationsByLine = Record<number, AnnotationV2[]>;
 
 interface DiffViewerProps {
   diffResult: DiffResult;
   viewMode: 'unified' | 'side-by-side';
+  annotationsByNewLine?: AnnotationsByLine;
 }
 
-function UnifiedView({ lines }: { lines: DiffLine[] }) {
+/** 変更後の行に掛かる注釈マーカー（型色ドット + 件数、内容はツールチップ） */
+function AnnotationGutter({ annotations }: { annotations?: AnnotationV2[] }) {
+  if (!annotations || annotations.length === 0) {
+    return <span className="diff-ann-gutter" />;
+  }
+  const tooltip = annotations
+    .map((a) => `[${getTypeConfig(a.type).label}] ${a.author}: ${a.content}`)
+    .join('\n');
+  const color = getTypeConfig(annotations[0].type).color;
+  return (
+    <span className="diff-ann-gutter has-annotations" title={tooltip}>
+      <span className="diff-ann-dot" style={{ backgroundColor: color }} />
+      {annotations.length > 1 && <span className="diff-ann-count">{annotations.length}</span>}
+    </span>
+  );
+}
+
+function UnifiedView({
+  lines,
+  annotationsByNewLine,
+}: {
+  lines: DiffLine[];
+  annotationsByNewLine?: AnnotationsByLine;
+}) {
   return (
     <div className="diff-unified">
       {lines.map((line, index) => (
@@ -17,6 +46,13 @@ function UnifiedView({ lines }: { lines: DiffLine[] }) {
           <span className="diff-line-number new">
             {line.type !== 'removed' ? line.newLineNumber : ''}
           </span>
+          <AnnotationGutter
+            annotations={
+              line.newLineNumber !== undefined
+                ? annotationsByNewLine?.[line.newLineNumber]
+                : undefined
+            }
+          />
           <span className="diff-line-prefix">
             {line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' '}
           </span>
@@ -27,7 +63,13 @@ function UnifiedView({ lines }: { lines: DiffLine[] }) {
   );
 }
 
-function SideBySideView({ pairs }: { pairs: SideBySidePair[] }) {
+function SideBySideView({
+  pairs,
+  annotationsByNewLine,
+}: {
+  pairs: SideBySidePair[];
+  annotationsByNewLine?: AnnotationsByLine;
+}) {
   return (
     <div className="diff-side-by-side">
       <div className="diff-side left">
@@ -56,6 +98,13 @@ function SideBySideView({ pairs }: { pairs: SideBySidePair[] }) {
             <span className="diff-line-number">
               {pair.right?.newLineNumber || ''}
             </span>
+            <AnnotationGutter
+              annotations={
+                pair.right?.newLineNumber !== undefined
+                  ? annotationsByNewLine?.[pair.right.newLineNumber]
+                  : undefined
+              }
+            />
             <span className="diff-line-content">
               {pair.right?.content || ' '}
             </span>
@@ -66,19 +115,26 @@ function SideBySideView({ pairs }: { pairs: SideBySidePair[] }) {
   );
 }
 
-function DiffViewer({ diffResult, viewMode }: DiffViewerProps) {
+function DiffViewer({ diffResult, viewMode, annotationsByNewLine }: DiffViewerProps) {
+  const annotatedLineCount = annotationsByNewLine ? Object.keys(annotationsByNewLine).length : 0;
   return (
     <div className="diff-viewer">
       <div className="diff-stats">
         <span className="stat added">+{diffResult.addedCount}</span>
         <span className="stat removed">-{diffResult.removedCount}</span>
         <span className="stat unchanged">{diffResult.unchangedCount} 行変更なし</span>
+        {annotatedLineCount > 0 && (
+          <span className="stat annotated">📍 注釈あり {annotatedLineCount} 行</span>
+        )}
       </div>
 
       {viewMode === 'unified' ? (
-        <UnifiedView lines={diffResult.lines} />
+        <UnifiedView lines={diffResult.lines} annotationsByNewLine={annotationsByNewLine} />
       ) : (
-        <SideBySideView pairs={createSideBySidePairs(diffResult)} />
+        <SideBySideView
+          pairs={createSideBySidePairs(diffResult)}
+          annotationsByNewLine={annotationsByNewLine}
+        />
       )}
 
       <style>{`
@@ -110,6 +166,37 @@ function DiffViewer({ diffResult, viewMode }: DiffViewerProps) {
         }
 
         .diff-stats .unchanged {
+          color: var(--text-muted);
+        }
+
+        .diff-stats .annotated {
+          color: var(--text-secondary);
+        }
+
+        /* 注釈ガター */
+        .diff-ann-gutter {
+          width: 26px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 2px;
+          flex-shrink: 0;
+          user-select: none;
+        }
+
+        .diff-ann-gutter.has-annotations {
+          cursor: help;
+        }
+
+        .diff-ann-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          display: inline-block;
+        }
+
+        .diff-ann-count {
+          font-size: 10px;
           color: var(--text-muted);
         }
 
