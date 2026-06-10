@@ -104,9 +104,12 @@ function RawBlock(el)
 
   -- === equation ===
   if name == 'equation' then
-    local parts = split_pipe(args_str)
-    local label = parts[1] or ''
-    local latex = parts[2] or ''
+    -- LaTeX 本体には |x| などのパイプが現れるため、最初の | でのみ分割する
+    local label, latex = args_str:match('^%s*(.-)%s*|%s*(.*)%s*$')
+    if not label then
+      label = args_str:match('^%s*(.-)%s*$') or ''
+      latex = ''
+    end
 
     local math_el = pandoc.Math(pandoc.DisplayMath, latex)
     -- crossref.lua は Para 内の {#eq:label} トークンで数式ラベルを検出する。

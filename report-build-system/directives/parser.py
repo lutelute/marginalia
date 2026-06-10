@@ -127,7 +127,11 @@ def parse_directives(text: str) -> List[Directive]:
             i += 1
             continue
 
-        args = [a.strip() for a in raw_args.split('|')] if raw_args else []
+        if name == 'equation':
+            # LaTeX 本体には |x| などのパイプが現れるため、最初の | でのみ分割する
+            args = [a.strip() for a in raw_args.split('|', 1)] if raw_args else []
+        else:
+            args = [a.strip() for a in raw_args.split('|')] if raw_args else []
         dtype = DirectiveType(name)
 
         # Handle block directives

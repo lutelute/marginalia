@@ -30,7 +30,7 @@ function SidebarGallery({ onOpenFullGallery }: { onOpenFullGallery: () => void }
     buildStatus, buildAllStatus, buildAllResults, buildAllProgress,
     // ProjectPanel から吸収
     isProject, manifests, buildResult, buildLog, runBuild,
-    projectMode, detectProject,
+    projectMode, detectProject, loadProjectData,
   } = useBuild();
   const { openTab } = useTab();
   const { rootPath, refreshDirectory } = useFile();
@@ -178,6 +178,15 @@ function SidebarGallery({ onOpenFullGallery }: { onOpenFullGallery: () => void }
         {activeSubTab === 'build' && isProject ? (
           /* ビルド設定タブ */
           <div className="sg-build-content">
+            <div className="sg-build-toolbar">
+              <button
+                className="sg-build-refresh"
+                onClick={() => projectDir && loadProjectData(projectDir)}
+                title="マニフェスト一覧を再読み込み（外部編集の反映）"
+              >
+                ↻ 更新
+              </button>
+            </div>
             {manifests.length === 0 ? (
               <div className="sg-build-empty">
                 projects/ にビルド設定ファイルがありません
@@ -428,6 +437,27 @@ function SidebarGallery({ onOpenFullGallery }: { onOpenFullGallery: () => void }
         .sg-build-content {
           padding: 4px 0;
         }
+        .sg-build-toolbar {
+          display: flex;
+          justify-content: flex-end;
+          padding: 4px 8px 0;
+        }
+
+        .sg-build-refresh {
+          font-size: 10px;
+          padding: 2px 8px;
+          background: transparent;
+          color: var(--text-muted);
+          border: 1px solid var(--border-color);
+          border-radius: 4px;
+          cursor: pointer;
+        }
+
+        .sg-build-refresh:hover {
+          color: var(--text-primary);
+          background-color: var(--bg-hover);
+        }
+
         .sg-scaffold-callout {
           margin: 8px;
           padding: 12px;
