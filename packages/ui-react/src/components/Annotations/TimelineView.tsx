@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import AuthorBadge from './AuthorBadge';
 import { useAnnotation } from '../../contexts/AnnotationContext';
 import { AnnotationV2 } from '../../types/annotations';
 import { getAnnotationExactText } from '../../utils/selectorUtils';
@@ -16,6 +17,7 @@ interface TimelineItem {
   annotation: AnnotationV2;
   content: string;
   author: string;
+  authorId?: string;
   timestamp: string;
   relativeTime: string;
 }
@@ -86,6 +88,7 @@ function TimelineView() {
         annotation,
         content: annotation.content,
         author: annotation.author,
+        authorId: annotation.authorId,
         timestamp: annotation.createdAt,
         relativeTime: formatRelativeTime(annotation.createdAt),
       });
@@ -98,6 +101,7 @@ function TimelineView() {
           annotation,
           content: reply.content,
           author: reply.author,
+          authorId: reply.authorId,
           timestamp: reply.createdAt,
           relativeTime: formatRelativeTime(reply.createdAt),
         });
@@ -166,7 +170,7 @@ function TimelineView() {
                   </div>
                   <div className="timeline-content">
                     <div className="timeline-header">
-                      <span className="timeline-author">{item.author}</span>
+                      <span className="timeline-author"><AuthorBadge author={item.author} authorId={item.authorId} /></span>
                       <span className="timeline-time">{formatTime(item.timestamp)}</span>
                       <span className="timeline-relative">{item.relativeTime}</span>
                     </div>

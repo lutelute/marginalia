@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import AuthorBadge from './AuthorBadge';
 import { AnnotationV2 } from '../../types/annotations';
 import { getAnnotationExactText, getEditorPosition } from '../../utils/selectorUtils';
 import { getTypeConfig } from '../../constants/annotationTypes';
@@ -72,7 +73,7 @@ function MarginCard({
         <span className="mc-type" style={{ backgroundColor: config.cssVar }}>
           {config.icon}
         </span>
-        <span className="mc-author">{annotation.author}</span>
+        <span className="mc-author"><AuthorBadge author={annotation.author} authorId={annotation.authorId} /></span>
         <span className="mc-date">{formatDate(annotation.createdAt)}</span>
       </div>
 

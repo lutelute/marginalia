@@ -246,8 +246,9 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
   const { currentUser } = useSettings();
   const { info: toastInfo } = useToast();
 
-  // 設定の現在ユーザー名を注釈の author に使う（未設定時は 'user'）
+  // 設定の現在ユーザーを注釈の author / authorId に使う（未設定時は 'user'）
   const authorName = currentUser?.name?.trim() || 'user';
+  const authorId = currentUser?.id || undefined;
 
   // 最新値の参照用（reloadNonce 起点の effect から依存を増やさず読むため）。
   // 依存なし effect は毎コミット実行され、宣言順で後続の effect より先に走る。
@@ -371,7 +372,7 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
 
     const data: MarginaliaFileV2 = {
       _tool: 'marginalia',
-      _version: '2.0.0',
+      _version: '2.1.0',
       filePath: currentFile,
       fileName: currentFile.split('/').pop() || '',
       lastModified: new Date().toISOString(),
@@ -416,6 +417,7 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
         target,
         content,
         author: authorName,
+        authorId,
         createdAt: now,
         status: 'active',
         replies: [],
@@ -437,7 +439,7 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
         },
       });
     },
-    [currentFile, authorName]
+    [currentFile, authorName, authorId]
   );
 
   const updateAnnotation = useCallback((id: string, updates: Partial<AnnotationV2>) => {
@@ -465,6 +467,7 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
         id: uuidv4(),
         content: replyContent,
         author: authorName,
+        authorId,
         createdAt: new Date().toISOString(),
       };
 
@@ -479,7 +482,7 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
         });
       }
     },
-    [state.annotations, authorName]
+    [state.annotations, authorName, authorId]
   );
 
   const resolveAnnotation = useCallback((id: string, resolved: boolean = true) => {

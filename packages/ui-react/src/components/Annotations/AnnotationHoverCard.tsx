@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import AuthorBadge from './AuthorBadge';
 import { AnnotationV2 } from '../../types/annotations';
 import { getAnnotationExactText, getEditorPosition } from '../../utils/selectorUtils';
 import { getTypeConfig } from '../../constants/annotationTypes';
@@ -151,7 +152,7 @@ function AnnotationHoverCard({
 
       {/* メタ情報 */}
       <div className="ahc-meta">
-        <span className="ahc-author">{annotation.author}</span>
+        <span className="ahc-author"><AuthorBadge author={annotation.author} authorId={annotation.authorId} /></span>
         <span className="ahc-date">{formatRelativeDate(annotation.createdAt)}</span>
       </div>
 
@@ -188,7 +189,7 @@ function AnnotationHoverCard({
             {annotation.replies.slice(-3).map((reply: any, idx: number) => (
               <div key={reply.id || idx} className="ahc-reply-item">
                 <div className="ahc-reply-meta">
-                  <span className="ahc-reply-author">{reply.author}</span>
+                  <span className="ahc-reply-author"><AuthorBadge author={reply.author} authorId={reply.authorId} /></span>
                   <span className="ahc-reply-date">{formatRelativeDate(reply.createdAt)}</span>
                 </div>
                 <div className="ahc-reply-content">{reply.content}</div>

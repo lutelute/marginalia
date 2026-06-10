@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import AuthorBadge from './AuthorBadge';
 import { useAnnotation } from '../../contexts/AnnotationContext';
 import { AnnotationV2 } from '../../types/annotations';
 import { getAnnotationExactText, getEditorPosition } from '../../utils/selectorUtils';
@@ -106,7 +107,7 @@ function CommentThread({ annotation, isSelected }: { annotation: AnnotationV2; i
           {/* メインコメント */}
           <div className="main-comment">
             <div className="comment-meta">
-              <span className="author">{annotation.author}</span>
+              <span className="author"><AuthorBadge author={annotation.author} authorId={annotation.authorId} /></span>
             </div>
             <div className="comment-body">{annotation.content}</div>
           </div>
@@ -117,7 +118,7 @@ function CommentThread({ annotation, isSelected }: { annotation: AnnotationV2; i
               {annotation.replies.map((reply) => (
                 <div key={reply.id} className="reply-item">
                   <div className="reply-meta">
-                    <span className="reply-author">{reply.author}</span>
+                    <span className="reply-author"><AuthorBadge author={reply.author} authorId={reply.authorId} /></span>
                     <span className="reply-date">{formatDate(reply.createdAt)}</span>
                   </div>
                   <div className="reply-body">{reply.content}</div>

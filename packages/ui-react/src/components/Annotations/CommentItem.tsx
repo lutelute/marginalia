@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import AuthorBadge from './AuthorBadge';
 import { useAnnotation } from '../../contexts/AnnotationContext';
 import { AnnotationV2 } from '../../types/annotations';
 import { getAnnotationExactText, getEditorPosition } from '../../utils/selectorUtils';
@@ -64,7 +65,7 @@ function CommentItem({ annotation }: { annotation: AnnotationV2 }) {
           {annotation.replies.map((reply) => (
             <div key={reply.id} className="reply">
               <div className="reply-header">
-                <span className="reply-author">{reply.author}</span>
+                <span className="reply-author"><AuthorBadge author={reply.author} authorId={reply.authorId} /></span>
                 <span className="reply-date">{formatDate(reply.createdAt)}</span>
               </div>
               <div className="reply-content">{reply.content}</div>

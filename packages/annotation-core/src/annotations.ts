@@ -51,6 +51,8 @@ export interface AnnotationReply {
   id: string;
   content: string;
   author: string;
+  /** 設定のユーザーID（共有時の同名衝突対策。v2.1.0 で追加、旧データは未設定） */
+  authorId?: string;
   createdAt: string;
 }
 
@@ -62,6 +64,8 @@ export interface AnnotationV2 {
   target: AnnotationTarget;
   content: string;
   author: string;
+  /** 設定のユーザーID（共有時の同名衝突対策。v2.1.0 で追加、旧データは未設定） */
+  authorId?: string;
   createdAt: string;
   updatedAt?: string;
   resolvedAt?: string;
@@ -88,7 +92,8 @@ export interface HistoryEntryV2 {
 
 export interface MarginaliaFileV2 {
   _tool: 'marginalia';
-  _version: '2.0.0';
+  /** 2.1.0: annotations/replies に authorId を追加（読み込みは 2.0.0 も受理） */
+  _version: '2.0.0' | '2.1.0';
   filePath: string;
   fileName: string;
   lastModified: string;
