@@ -32,8 +32,10 @@ class PandocEngine(BuildEngine):
     ) -> bool:
         template = manifest.get('template', 'report')
         style = manifest.get('style')
-        output_dir = project_root / 'output'
-        output_dir.mkdir(exist_ok=True)
+        # MARGINALIA_OUTPUT_DIR が設定されていれば優先（MCP/GUI からの呼び出し用）
+        env_out = os.environ.get('MARGINALIA_OUTPUT_DIR')
+        output_dir = Path(env_out) if env_out else project_root / 'output'
+        output_dir.mkdir(parents=True, exist_ok=True)
 
         manifest_name = manifest_path.stem
 
@@ -53,7 +55,7 @@ class PandocEngine(BuildEngine):
 
         # Build Pandoc command
         cmd = self._build_command(
-            manifest, format_type, template_path, output_path, project_root
+            manifest, format_type, template_path, output_path, project_root, manifest_path
         )
 
         # Write temp file and execute
@@ -64,7 +66,11 @@ class PandocEngine(BuildEngine):
             tmp_path = tmp.name
 
         try:
-            rel_output = output_path.relative_to(project_root)
+            # 外部プロジェクト（MARGINALIA_OUTPUT_DIR 指定）ではルート外になるため絶対パスで表示
+            try:
+                rel_output = output_path.relative_to(project_root)
+            except ValueError:
+                rel_output = output_path
             print(f"Building {rel_output}... ", end='', flush=True)
 
             cmd.insert(1, tmp_path)  # input file right after 'pandoc'
@@ -159,6 +165,7 @@ class PandocEngine(BuildEngine):
         template_path: Path,
         output_path: Path,
         project_root: Path,
+        manifest_path: Path,
     ) -> list:
         """Assemble the pandoc CLI arguments."""
         template = manifest.get('template', 'report')
@@ -200,21 +207,31 @@ class PandocEngine(BuildEngine):
         if (filters_dir / 'layout.lua').exists():
             cmd.extend([f'--lua-filter={filters_dir / "layout.lua"}'])
 
+        # マニフェスト参照パスの解決基準: マニフェストのあるフォルダ → ビルドシステムルート
+        manifest_dir = manifest_path.parent.absolute()
+
+        def resolve_ref(raw: str) -> Path:
+            path = Path(raw)
+            if path.is_absolute():
+                return path
+            for base in (manifest_dir, project_root):
+                candidate = base / path
+                if candidate.exists():
+                    return candidate
+            return manifest_dir / path
+
+        # 画像等の相対パスをマニフェスト基準で解決できるようにする
+        cmd.extend([f'--resource-path={manifest_dir}{os.pathsep}{project_root}'])
+
         # Bibliography / citeproc
         bib = manifest.get('bibliography')
         if bib:
-            bib_path = Path(bib)
-            if not bib_path.is_absolute():
-                bib_path = project_root / bib_path
-            cmd.extend([f'--bibliography={bib_path}'])
+            cmd.extend([f'--bibliography={resolve_ref(bib)}'])
             cmd.append('--citeproc')
 
         csl = manifest.get('csl')
         if csl:
-            csl_path = Path(csl)
-            if not csl_path.is_absolute():
-                csl_path = project_root / csl_path
-            cmd.extend([f'--csl={csl_path}'])
+            cmd.extend([f'--csl={resolve_ref(csl)}'])
 
         # Conference heading shift
         if 'conference' in template:

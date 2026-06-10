@@ -63,7 +63,24 @@ def strip_yaml_front_matter(text: str) -> str:
             return text[end + 4:].lstrip('\n')
     return text
 
-def concatenate_sections(manifest: Dict[str, Any], project_root: Path) -> str:
+def resolve_input_path(raw_path: str, manifest_dir: Path, project_root: Path) -> Path:
+    """Resolve a manifest-referenced path.
+
+    優先順: 絶対パス → マニフェストのあるフォルダ基準 → ビルドシステムルート基準。
+    外部の論文フォルダ（マニフェスト同梱レイアウト）と、リポジトリ内
+    projects/*.yaml（リポジトリルート基準レイアウト）の両方を成立させる。
+    """
+    path = Path(raw_path)
+    if path.is_absolute():
+        return path
+    for base in (manifest_dir, project_root):
+        candidate = base / path
+        if candidate.exists():
+            return candidate
+    # 見つからない場合もマニフェスト基準のパスを返す（エラー表示用）
+    return manifest_dir / path
+
+def concatenate_sections(manifest: Dict[str, Any], project_root: Path, manifest_dir: Path) -> str:
     """Concatenate all source files with pagebreaks."""
     content_parts = []
 
@@ -73,13 +90,10 @@ def concatenate_sections(manifest: Dict[str, Any], project_root: Path) -> str:
     # Handle sections or single source
     if sections:
         for i, section_path in enumerate(sections):
-            if not Path(section_path).is_absolute():
-                full_path = project_root / section_path
-            else:
-                full_path = Path(section_path)
+            full_path = resolve_input_path(section_path, manifest_dir, project_root)
 
             if not full_path.exists():
-                raise FileNotFoundError(f"Section file not found: {section_path}")
+                raise FileNotFoundError(f"Section file not found: {section_path} (tried: {full_path})")
 
             with open(full_path, 'r', encoding='utf-8') as f:
                 content = strip_yaml_front_matter(f.read())
@@ -90,13 +104,10 @@ def concatenate_sections(manifest: Dict[str, Any], project_root: Path) -> str:
                 content_parts.append("\n\n\\newpage\n\n")
 
     elif source:
-        if not Path(source).is_absolute():
-            full_path = project_root / source
-        else:
-            full_path = Path(source)
+        full_path = resolve_input_path(source, manifest_dir, project_root)
 
         if not full_path.exists():
-            raise FileNotFoundError(f"Source file not found: {source}")
+            raise FileNotFoundError(f"Source file not found: {source} (tried: {full_path})")
 
         with open(full_path, 'r', encoding='utf-8') as f:
             content = strip_yaml_front_matter(f.read())
@@ -152,7 +163,7 @@ def build_manifest(manifest_path: Path, output_formats: Optional[List[str]] = No
         formats = output_formats if output_formats else manifest.get('output', ['pdf'])
         
         # Concatenate sections
-        section_content = concatenate_sections(manifest, project_root)
+        section_content = concatenate_sections(manifest, project_root, manifest_path.parent.absolute())
         
         # Build front matter
         front_matter = build_yaml_front_matter(manifest)
@@ -322,10 +333,12 @@ def main():
 
     # Determine which manifests to build
     if args.manifest:
-        # Build specified manifest
+        # Build specified manifest（CWD 基準 → ビルドシステムルート基準の順で解決）
         manifest_path = Path(args.manifest)
         if not manifest_path.is_absolute():
-            manifest_path = project_root / manifest_path
+            cwd_candidate = Path.cwd() / manifest_path
+            root_candidate = project_root / manifest_path
+            manifest_path = cwd_candidate if cwd_candidate.exists() else root_candidate
 
         manifests = [manifest_path]
     else:

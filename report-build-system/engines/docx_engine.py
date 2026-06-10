@@ -6,6 +6,7 @@ supporting SEQ field auto-numbering, OMML equations, and template injection.
 """
 
 import re
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -61,8 +62,12 @@ class DocxEngine(BuildEngine):
         self._alg_counter = 0
         self._labels = {}
 
-        output_dir = project_root / 'output'
-        output_dir.mkdir(exist_ok=True)
+        env_out = os.environ.get('MARGINALIA_OUTPUT_DIR')
+        output_dir = Path(env_out) if env_out else project_root / 'output'
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # 画像等の相対パス解決基準（マニフェストのあるフォルダを優先）
+        self._manifest_dir = manifest_path.parent.absolute()
         manifest_name = manifest_path.stem
         output_path = output_dir / f"{manifest_name}.docx"
 
@@ -89,7 +94,11 @@ class DocxEngine(BuildEngine):
         # Find injection point
         insert_idx = self._find_anchor(doc, anchor_heading)
 
-        rel_output = output_path.relative_to(project_root)
+        # 外部プロジェクト（MARGINALIA_OUTPUT_DIR 指定）ではルート外になるため絶対パスで表示
+        try:
+            rel_output = output_path.relative_to(project_root)
+        except ValueError:
+            rel_output = output_path
         print(f"Building {rel_output} (python-docx)... ", end='', flush=True)
 
         try:
@@ -397,10 +406,12 @@ class DocxEngine(BuildEngine):
         caption = directive.caption or ''
         width = directive.width
 
-        # Resolve image path
+        # Resolve image path（マニフェスト基準 → ビルドシステムルート）
         full_path = Path(img_path)
         if not full_path.is_absolute():
-            full_path = project_root / img_path
+            manifest_dir = getattr(self, '_manifest_dir', None)
+            candidates = [base / img_path for base in (manifest_dir, project_root) if base]
+            full_path = next((c for c in candidates if c.exists()), candidates[-1])
 
         # Image paragraph
         if full_path.exists():

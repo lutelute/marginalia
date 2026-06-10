@@ -54,6 +54,23 @@ export function loadManifest(manifestPath?: string): Manifest {
   return manifest;
 }
 
+/**
+ * マニフェストが参照するパス（bibliography / csl 等）を解決する。
+ * ワークスペース設定時はそのフォルダを優先し、存在しなければ
+ * ビルドシステムルート基準にフォールバックする。
+ */
+export function resolveProjectPath(p: string): string {
+  if (path.isAbsolute(p)) return p;
+  const bases = hasWorkspace()
+    ? [getWorkspace().projectFolder, PROJECT_ROOT]
+    : [PROJECT_ROOT];
+  for (const base of bases) {
+    const candidate = path.join(base, p);
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return path.join(bases[0], p);
+}
+
 /** マニフェストから全セクションファイルのパスを解決して返す */
 export function resolveSectionPaths(manifest: Manifest, manifestPath?: string): string[] {
   // セクションの相対パスの基準ディレクトリ

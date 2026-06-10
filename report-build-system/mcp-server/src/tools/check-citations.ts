@@ -1,8 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { loadManifest, resolveSectionPaths } from '../utils/manifest.js';
+import { loadManifest, resolveSectionPaths, resolveProjectPath } from '../utils/manifest.js';
 import { parseBibKeys } from '../utils/bib-parser.js';
-import { PROJECT_ROOT } from '../config.js';
 
 interface CitationReport {
   bibFile: string;
@@ -19,9 +18,7 @@ export function checkCitations(manifestPath?: string): CitationReport {
     throw new Error('マニフェストに bibliography が指定されていません');
   }
 
-  const bibPath = path.isAbsolute(manifest.bibliography)
-    ? manifest.bibliography
-    : path.join(PROJECT_ROOT, manifest.bibliography);
+  const bibPath = resolveProjectPath(manifest.bibliography);
 
   const bibEntries = parseBibKeys(bibPath);
   const bibKeySet = new Set(bibEntries.map(e => e.key));

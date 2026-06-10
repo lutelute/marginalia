@@ -1,7 +1,7 @@
 import { execFile } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { BUILD_SCRIPT, PROJECT_ROOT, hasWorkspace, getMgPath } from '../config.js';
+import { BUILD_SCRIPT, PROJECT_ROOT, hasWorkspace, getWorkspace, getMgPath } from '../config.js';
 import { resolveManifestPath } from '../utils/manifest.js';
 
 interface BuildResult {
@@ -34,7 +34,9 @@ export async function buildDocument(
 
   return new Promise((resolve) => {
     execFile('python3', args, {
-      cwd: PROJECT_ROOT,
+      // ワークスペース時はプロジェクトフォルダを CWD に（相対リソース解決のため）
+      cwd: hasWorkspace() ? getWorkspace().projectFolder : PROJECT_ROOT,
+      env: { ...process.env, MARGINALIA_OUTPUT_DIR: outputDir },
       maxBuffer: 10 * 1024 * 1024,
       timeout: 120_000,
     }, (error, stdout, stderr) => {
