@@ -211,6 +211,32 @@ npm run package:linux   # Linux
 - **react-markdown** - Markdownレンダリング
 - **remark-gfm** - GitHub Flavored Markdown対応
 
+## アーキテクチャ
+
+ポート&アダプタ（ヘキサゴナル）構成の npm workspaces モノレポです。
+UI・機能ロジックはプラットフォーム非依存の「ブロック」として分離されており、
+ポート実装を差し替えるだけで Electron 以外（Web/Tauri）にも載せられます。
+
+```
+marginalia/
+├── packages/
+│   ├── shared-types/     # 共通 DTO・型定義（依存なし）
+│   ├── ports/            # プラットフォーム境界のインターフェース（純粋TS型）
+│   ├── annotation-core/  # 注釈ロジック（セレクタ・マイグレーション・W3C変換）
+│   ├── ui-react/         # UI ブロック全体（React、ports の型のみに依存）
+│   └── adapter-web/      # PlatformPorts の Web 実装（注釈/KV はブラウザで完全動作）
+└── apps/
+    └── electron/         # Electron アプリ（main process + renderer エントリ）
+        ├── main.js ほか  # IPC・ファイルシステム・PTY・自動更新
+        └── renderer/     # index.html / index.tsx / createElectronPorts（組み立て点）
+```
+
+- **依存方向（一方向）**: `apps → adapters → ports ← annotation-core → shared-types`
+- **DI**: `apps/electron/renderer/index.tsx` が `createElectronPorts()` を組み立てて
+  `<App ports={...} />` に注入。renderer 側に `window.electronAPI` 直叩きは 0
+- **Web 対応**: 同じ App に `createWebPorts()`（`@marginalia/adapter-web`）を渡すと
+  ビルド/ターミナル等は安全に縮退しつつ、注釈・編集 UI がブラウザで動作
+
 ## ライセンス
 
 MIT License
