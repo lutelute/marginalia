@@ -10,10 +10,10 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
-  root: 'src',
+  root: 'apps/electron/renderer',
   base: './',
   build: {
-    outDir: '../dist',
+    outDir: '../../../dist',
     emptyOutDir: true,
   },
   server: {
@@ -26,7 +26,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@marginalia/ui-react': path.resolve(__dirname, './packages/ui-react/src/index.ts'),
       '@marginalia/shared-types': path.resolve(__dirname, './packages/shared-types/src/index.ts'),
       '@marginalia/ports': path.resolve(__dirname, './packages/ports/src/index.ts'),
     },

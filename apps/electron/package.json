@@ -1,0 +1,11 @@
+{
+  "name": "@marginalia/desktop",
+  "version": "1.5.1",
+  "private": true,
+  "main": "main.js",
+  "dependencies": {
+    "@marginalia/ui-react": "*",
+    "node-pty": "^1.0.0",
+    "js-yaml": "^4.1.1"
+  }
+}

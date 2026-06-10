@@ -20,7 +20,7 @@ export default tseslint.config(
 
   // TypeScript / React (renderer + packages)
   {
-    files: ['src/**/*.{ts,tsx}', 'packages/**/src/**/*.{ts,tsx}'],
+    files: ['packages/**/src/**/*.{ts,tsx}', 'apps/electron/renderer/**/*.{ts,tsx}'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     plugins: { 'react-hooks': reactHooks },
     rules: {
