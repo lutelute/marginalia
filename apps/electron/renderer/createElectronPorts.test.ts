@@ -36,6 +36,7 @@ const API_METHODS = [
   'watchFile',
   'unwatchFile',
   'onFileChangedExternally',
+  'onMarginaliaChangedExternally',
   // terminal
   'terminalCreate',
   'terminalWrite',
@@ -151,6 +152,12 @@ const DELEGATIONS: Array<[string, (p: PlatformPorts) => unknown, keyof MockApi, 
   ['watcher.watch', (p) => p.watcher.watch('/a.md'), 'watchFile', ['/a.md']],
   ['watcher.unwatch', (p) => p.watcher.unwatch(), 'unwatchFile', []],
   ['watcher.onChanged', (p) => p.watcher.onChanged(cb), 'onFileChangedExternally', [cb]],
+  [
+    'watcher.onAnnotationsChanged',
+    (p) => p.watcher.onAnnotationsChanged(cb),
+    'onMarginaliaChangedExternally',
+    [cb],
+  ],
   // terminal
   ['terminal.create', (p) => p.terminal.create('/cwd'), 'terminalCreate', ['/cwd']],
   ['terminal.write', (p) => p.terminal.write('s1', 'ls\n'), 'terminalWrite', ['s1', 'ls\n']],

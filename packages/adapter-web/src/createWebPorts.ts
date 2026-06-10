@@ -113,6 +113,7 @@ export function createWebPorts(options: WebPortsOptions = {}): PlatformPorts {
       watch: async () => ({ success: true }),
       unwatch: async () => ({ success: true }),
       onChanged: () => noopUnsubscribe,
+      onAnnotationsChanged: () => noopUnsubscribe,
     },
 
     // PTY は Web 未対応（App 側は create 失敗を try/catch で処理する設計）

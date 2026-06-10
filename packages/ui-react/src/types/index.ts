@@ -274,6 +274,7 @@ export interface ElectronAPI {
   watchFile: (filePath: string) => Promise<{ success: boolean; error?: string }>;
   unwatchFile: () => Promise<{ success: boolean; error?: string }>;
   onFileChangedExternally: (callback: (filePath: string) => void) => () => void;
+  onMarginaliaChangedExternally: (callback: (mdPath: string) => void) => () => void;
   listMarginaliaBackups: (path: string) => Promise<BackupListResult>;
   restoreMarginaliaBackup: (backupPath: string, filePath: string) => Promise<RestoreMarginaliaBackupResult>;
   // アップデート関連

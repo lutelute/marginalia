@@ -40,6 +40,7 @@ export function createElectronPorts(): PlatformPorts {
       watch: (filePath) => api().watchFile(filePath),
       unwatch: () => api().unwatchFile(),
       onChanged: (cb) => api().onFileChangedExternally(cb),
+      onAnnotationsChanged: (cb) => api().onMarginaliaChangedExternally(cb),
     },
     terminal: {
       create: (cwd) => api().terminalCreate(cwd),

@@ -40,6 +40,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('file-changed-externally', listener);
     return () => ipcRenderer.removeListener('file-changed-externally', listener);
   },
+  // 注釈ファイル（.mrgl）の外部変更通知。payload は対応する md のパス
+  onMarginaliaChangedExternally: (callback) => {
+    const listener = (event, mdPath) => callback(mdPath);
+    ipcRenderer.on('marginalia-changed-externally', listener);
+    return () => ipcRenderer.removeListener('marginalia-changed-externally', listener);
+  },
 
   // アップデート操作
   checkForUpdates: () => ipcRenderer.invoke('update:check'),

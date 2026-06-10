@@ -306,11 +306,21 @@ ipcMain.handle('fs:watchFile', async (event, filePath) => {
   } catch (error) {
     return { success: false, error: error.message };
   }
-  return fileWatcher.watchFile(filePath, (changedPath) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('file-changed-externally', changedPath);
+  return fileWatcher.watchFile(
+    filePath,
+    (changedPath) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('file-changed-externally', changedPath);
+      }
+    },
+    // 注釈ファイル（.mrgl）も監視し、外部変更（git pull 等）を通知する
+    fileSystem.getMarginaliaPath(filePath),
+    (mdPath) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('marginalia-changed-externally', mdPath);
+      }
     }
-  });
+  );
 });
 
 // 外部変更監視を停止

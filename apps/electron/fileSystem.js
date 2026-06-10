@@ -834,6 +834,7 @@ module.exports = {
   writeFile,
   readMarginalia,
   writeMarginalia,
+  getMarginaliaPath,
   exists,
   createBackup,
   listBackups,

@@ -16,6 +16,7 @@ import {
 import { migrateFile } from '@marginalia/annotation-core';
 import { usePorts } from './PortsContext';
 import { useSettings } from './SettingsContext';
+import { useToast } from './ToastContext';
 import {
   anchorAnnotation,
   getAnnotationExactText,
@@ -243,6 +244,7 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
   const { currentFile, content, reloadNonce } = useFile();
   const ports = usePorts();
   const { currentUser } = useSettings();
+  const { info: toastInfo } = useToast();
 
   // 設定の現在ユーザー名を注釈の author に使う（未設定時は 'user'）
   const authorName = currentUser?.name?.trim() || 'user';
@@ -346,6 +348,23 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
     loadAnnotationsFromDisk(filePath, contentRef.current || undefined);
   }, [reloadNonce, loadAnnotationsFromDisk]);
 
+  // 自アプリの .mrgl 保存直後タイムスタンプ（外部変更イベントの自己起因ガード用）。
+  // 自動保存の書き込み → fs.watch イベント（500ms debounce）の往復を吸収できる長さにする
+  const lastAnnotationSaveAtRef = React.useRef(0);
+  const SELF_ANNOTATION_SAVE_IGNORE_MS = 1500;
+
+  // .mrgl 単独の外部変更（注釈だけが git pull で届いた等）: サイレント再読込。
+  // md 本文は変わらないため再アンカー不要で、確認バナーは出さない（トーストのみ）。
+  useEffect(() => {
+    const unsubscribe = ports.watcher.onAnnotationsChanged((docPath) => {
+      if (docPath !== currentFileRef.current) return;
+      if (Date.now() - lastAnnotationSaveAtRef.current < SELF_ANNOTATION_SAVE_IGNORE_MS) return;
+      loadAnnotationsFromDisk(docPath, contentRef.current || undefined);
+      toastInfo('注釈が外部で更新されました');
+    });
+    return unsubscribe;
+  }, [ports, loadAnnotationsFromDisk, toastInfo]);
+
   // データ変更時に自動保存（V2形式）
   const saveMarginalia = useCallback(async () => {
     if (!currentFile) return;
@@ -360,6 +379,8 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
       history: state.history,
     };
 
+    // 自己起因の .mrgl 変更イベントを無視するためのタイムスタンプ
+    lastAnnotationSaveAtRef.current = Date.now();
     await ports.annotations.write(currentFile, data);
   }, [currentFile, state.annotations, state.history, ports]);
 

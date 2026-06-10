@@ -108,6 +108,11 @@ export interface FileWatcherPort {
   watch(filePath: string): Promise<Result>;
   unwatch(): Promise<Result>;
   onChanged(cb: (filePath: string) => void): Unsubscribe;
+  /**
+   * 監視中ファイルの注釈ファイル（.mrgl）が外部で変更されたときの通知。
+   * コールバックには .mrgl のパスではなく「対応するドキュメントのパス」が渡る。
+   */
+  onAnnotationsChanged(cb: (docPath: string) => void): Unsubscribe;
 }
 
 // ---------------------------------------------------------------------------
