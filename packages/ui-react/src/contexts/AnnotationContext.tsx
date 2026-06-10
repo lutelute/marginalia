@@ -15,6 +15,7 @@ import {
 } from '../types/annotations';
 import { migrateFile } from '@marginalia/annotation-core';
 import { usePorts } from './PortsContext';
+import { useSettings } from './SettingsContext';
 import {
   anchorAnnotation,
   getAnnotationExactText,
@@ -239,8 +240,57 @@ const AnnotationContext = createContext<AnnotationContextValue | null>(null);
 
 export function AnnotationProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(annotationReducer, initialState);
-  const { currentFile, content } = useFile();
+  const { currentFile, content, reloadNonce } = useFile();
   const ports = usePorts();
+  const { currentUser } = useSettings();
+
+  // 設定の現在ユーザー名を注釈の author に使う（未設定時は 'user'）
+  const authorName = currentUser?.name?.trim() || 'user';
+
+  // 最新値の参照用（reloadNonce 起点の effect から依存を増やさず読むため）。
+  // 依存なし effect は毎コミット実行され、宣言順で後続の effect より先に走る。
+  const currentFileRef = React.useRef<string | null>(null);
+  const contentRef = React.useRef<string>('');
+  useEffect(() => {
+    currentFileRef.current = currentFile;
+    contentRef.current = content;
+  });
+
+  // ディスクから .mrgl を読み込んで state に反映（V1 形式は読み込み時にマイグレーション）
+  const loadAnnotationsFromDisk = useCallback(
+    async (filePath: string, docText?: string) => {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      const result = await ports.annotations.read(filePath);
+      if (result && result.success && result.data) {
+        if (result.needsMigration) {
+          // V1→V2マイグレーション
+          const v2Data = migrateFile(result.data as unknown as MarginaliaFileV1, docText);
+          dispatch({
+            type: 'LOAD_DATA',
+            payload: {
+              annotations: v2Data.annotations,
+              history: v2Data.history,
+            },
+          });
+        } else {
+          dispatch({
+            type: 'LOAD_DATA',
+            payload: {
+              annotations: result.data.annotations || [],
+              history: result.data.history || [],
+            },
+          });
+        }
+      } else {
+        // ファイルに .marginalia がない場合はクリア
+        dispatch({
+          type: 'LOAD_DATA',
+          payload: { annotations: [], history: [] },
+        });
+      }
+    },
+    [ports]
+  );
 
   // ファイル変更時: 現在のデータをキャッシュに保存してから切替
   const prevFileRef = React.useRef<string | null>(null);
@@ -283,40 +333,18 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
       return;
     }
 
-    const loadData = async () => {
-      dispatch({ type: 'SET_LOADING', payload: true });
-      const result = await ports.annotations.read(currentFile);
-      if (result && result.success && result.data) {
-        if (result.needsMigration) {
-          // V1→V2マイグレーション
-          const v2Data = migrateFile(result.data as unknown as MarginaliaFileV1, content || undefined);
-          dispatch({
-            type: 'LOAD_DATA',
-            payload: {
-              annotations: v2Data.annotations,
-              history: v2Data.history,
-            },
-          });
-        } else {
-          dispatch({
-            type: 'LOAD_DATA',
-            payload: {
-              annotations: result.data.annotations || [],
-              history: result.data.history || [],
-            },
-          });
-        }
-      } else {
-        // ファイルに .marginalia がない場合はクリア
-        dispatch({
-          type: 'LOAD_DATA',
-          payload: { annotations: [], history: [] },
-        });
-      }
-    };
-
-    loadData();
+    loadAnnotationsFromDisk(currentFile, content || undefined);
   }, [currentFile, ports]);
+
+  // 外部変更による再読み込み（reloadFile）時: .mrgl もディスクから読み直す。
+  // git pull や共同編集で .md と一緒に .mrgl が更新されるケースに追従するため、
+  // 注釈キャッシュをバイパスして必ずディスクを読む。
+  useEffect(() => {
+    if (reloadNonce === 0) return;
+    const filePath = currentFileRef.current;
+    if (!filePath || /\.ya?ml$/i.test(filePath)) return;
+    loadAnnotationsFromDisk(filePath, contentRef.current || undefined);
+  }, [reloadNonce, loadAnnotationsFromDisk]);
 
   // データ変更時に自動保存（V2形式）
   const saveMarginalia = useCallback(async () => {
@@ -366,7 +394,7 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
         type,
         target,
         content,
-        author: 'user',
+        author: authorName,
         createdAt: now,
         status: 'active',
         replies: [],
@@ -388,7 +416,7 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
         },
       });
     },
-    [currentFile]
+    [currentFile, authorName]
   );
 
   const updateAnnotation = useCallback((id: string, updates: Partial<AnnotationV2>) => {
@@ -415,7 +443,7 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
       const reply: AnnotationReply = {
         id: uuidv4(),
         content: replyContent,
-        author: 'user',
+        author: authorName,
         createdAt: new Date().toISOString(),
       };
 
@@ -430,7 +458,7 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
         });
       }
     },
-    [state.annotations]
+    [state.annotations, authorName]
   );
 
   const resolveAnnotation = useCallback((id: string, resolved: boolean = true) => {
@@ -587,6 +615,20 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
     },
     [state.annotations]
   );
+
+  // ドキュメント内容の変更に追従して孤立検出＋再アンカーを実行（debounce付き）。
+  // パネルの表示状態に依存させないため、Provider 自身が監視する。
+  // detectOrphanedAnnotations を依存に含めても、再アンカー結果が安定すれば
+  // 2周目以降は dispatch が発生せず収束する。
+  useEffect(() => {
+    if (!content || state.annotations.length === 0) return;
+
+    const timer = setTimeout(() => {
+      detectOrphanedAnnotations(content);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [content, detectOrphanedAnnotations, state.annotations.length]);
 
   // --- Memoized Selectors ---
 

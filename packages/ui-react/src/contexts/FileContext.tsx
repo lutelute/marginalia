@@ -206,6 +206,8 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
   const ports = usePorts();
   const [recentFolders, setRecentFolders] = useState<string[]>([]);
   const [fileMetadata, setFileMetadata] = useState<FileStats | null>(null);
+  // reloadFile 成功ごとに増えるカウンタ。AnnotationContext が .mrgl 再読込の合図に使う
+  const [reloadNonce, setReloadNonce] = useState(0);
   // 自アプリの保存直後タイムスタンプ（外部変更イベントの自己起因ガード用）
   const lastSaveAtRef = useRef<number>(0);
   // 保存直後にこのミリ秒以内に来た fs.watch イベントは自己起因とみなして無視
@@ -460,13 +462,21 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
       ]);
 
       if (fileResult.success && fileResult.content !== undefined) {
+        const mtime = statsResult?.stats?.mtime || null;
         dispatch({
           type: 'SET_CONTENT',
           payload: {
             content: fileResult.content,
-            mtime: statsResult?.stats?.mtime || null,
+            mtime,
           },
         });
+        // コンテンツキャッシュも最新化（タブ切替で旧内容に戻るのを防ぐ）
+        dispatch({
+          type: 'CACHE_FILE_CONTENT',
+          payload: { filePath: state.currentFile, content: fileResult.content, mtime },
+        });
+        // 注釈側（.mrgl）の再読込トリガー
+        setReloadNonce((n) => n + 1);
       } else {
         console.error('[FileContext] reloadFile failed:', fileResult.error);
         dispatch({ type: 'SET_ERROR', payload: humanizeError(fileResult.error) });
@@ -762,6 +772,7 @@ export function FileProvider({ children, showHiddenFiles = false, excludePattern
     checkExternalChange,
     reloadFile,
     clearExternalChange,
+    reloadNonce,
     // ファイル操作
     closeFile,
     loadFileToCache,

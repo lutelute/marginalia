@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAnnotation } from '../../contexts/AnnotationContext';
 import { useFile } from '../../contexts/FileContext';
 import CommentThread from './CommentThread';
@@ -25,21 +25,9 @@ function AnnotationPanel() {
     setPendingSelection,
     orphanedAnnotations,
     keptAnnotations,
-    detectOrphanedAnnotations,
   } = useAnnotation();
-  const { content } = useFile();
 
-  // ドキュメント内容が変更されたら孤立注釈を検出（debounce付き）
-  useEffect(() => {
-    if (!content || annotations.length === 0) return;
-
-    // 500ms後に検出を実行（頻繁な更新を防ぐ）
-    const timer = setTimeout(() => {
-      detectOrphanedAnnotations(content);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [content]); // annotations.lengthを依存関係から削除
+  // 孤立注釈の検出はAnnotationProvider側で常時実行される（パネル表示に非依存）
 
   const orphanedCount = orphanedAnnotations.length + keptAnnotations.length;
 

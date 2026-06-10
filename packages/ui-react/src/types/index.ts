@@ -83,6 +83,8 @@ export interface FileContextValue extends FileState {
   checkExternalChange: () => Promise<boolean>;
   reloadFile: () => Promise<void>;
   clearExternalChange: () => void;
+  /** reloadFile が成功するたびに増えるカウンタ。注釈側が .mrgl 再読込の合図に使う */
+  reloadNonce: number;
   // ファイル操作
   closeFile: (filePath: string) => void;
   loadFileToCache: (filePath: string) => Promise<void>;

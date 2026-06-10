@@ -2,7 +2,7 @@ import React from 'react';
 import { useFile } from '../../contexts/FileContext';
 
 function ExternalChangeWarning() {
-  const { externalChangeDetected, reloadFile, clearExternalChange, currentFile } = useFile();
+  const { externalChangeDetected, reloadFile, clearExternalChange, currentFile, isModified } = useFile();
 
   if (!externalChangeDetected || !currentFile) {
     return null;
@@ -16,11 +16,16 @@ function ExternalChangeWarning() {
         <span className="warning-icon">⚠️</span>
         <span className="warning-message">
           <strong>{fileName}</strong> は外部で変更されました
+          {isModified && (
+            <span className="unsaved-note">
+              未保存の編集があります。再読み込みすると編集内容は失われます。
+            </span>
+          )}
         </span>
       </div>
       <div className="warning-actions">
         <button className="reload-btn" onClick={reloadFile}>
-          再読み込み
+          {isModified ? '破棄して再読み込み' : '再読み込み'}
         </button>
         <button className="dismiss-btn" onClick={clearExternalChange}>
           無視
@@ -68,6 +73,13 @@ function ExternalChangeWarning() {
 
         .warning-message {
           font-size: 13px;
+        }
+
+        .unsaved-note {
+          display: block;
+          font-size: 11px;
+          font-weight: 600;
+          margin-top: 2px;
         }
 
         .warning-actions {
