@@ -4,11 +4,11 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
+      "@marginalia/ui-react": ["packages/ui-react/src/index.ts"],
       "@marginalia/shared-types": ["packages/shared-types/src/index.ts"],
       "@marginalia/ports": ["packages/ports/src/index.ts"]
     }
   },
-  "include": ["src"],
+  "include": ["packages/ui-react/src", "apps/electron/renderer"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

@@ -9,7 +9,7 @@ import { TerminalProvider } from './contexts/TerminalContext';
 import { useFile } from './contexts/FileContext';
 import { AppStateProvider, useAppState } from './contexts/AppStateContext';
 import { PortsProvider, usePorts } from './contexts/PortsContext';
-import { createElectronPorts } from './adapters/electron/createElectronPorts';
+import type { PlatformPorts } from '@marginalia/ports';
 import FileTree from './components/Sidebar/FileTree';
 import ErrorBoundary from './components/common/ErrorBoundary';
 // ProjectPanel は SidebarGallery に統合済み
@@ -28,10 +28,6 @@ import { appShellStyles } from './components/appStyles';
 // ギャラリー専用ウィンドウモード判定
 const isGalleryWindow = new URLSearchParams(window.location.search).get('view') === 'gallery';
 
-// プラットフォームポート（Electron実装）。各メソッドは呼び出し時に
-// window.electronAPI を参照するため module スコープ生成で問題ない。
-const platformPorts = createElectronPorts();
-
 function SettingsModalWrapper() {
   const { isSettingsOpen } = useSettings();
   return isSettingsOpen ? <SettingsPanel /> : null;
@@ -47,12 +43,12 @@ function BuildProviderBridge({ children }: { children: React.ReactNode }) {
   return <BuildProvider rootPath={rootPath}>{children}</BuildProvider>;
 }
 
-function App() {
+function App({ ports }: { ports: PlatformPorts }) {
   // ギャラリー専用ウィンドウモードの場合は専用レイアウトを返す
   // 注: フックを持つ本体は MainApp に分離（早期returnとフックの共存は rules-of-hooks 違反）
   // PortsProvider を最外に置き、全 Context がポート経由でプラットフォームへアクセスする
   return (
-    <PortsProvider ports={platformPorts}>
+    <PortsProvider ports={ports}>
       {isGalleryWindow ? <GalleryWindowApp /> : <MainApp />}
     </PortsProvider>
   );
