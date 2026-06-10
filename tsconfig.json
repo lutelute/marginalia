@@ -9,6 +9,5 @@
       "@marginalia/ports": ["packages/ports/src/index.ts"]
     }
   },
-  "include": ["packages/ui-react/src", "packages/adapter-web/src", "apps/electron/renderer"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": ["packages/ui-react/src", "packages/adapter-web/src", "apps/electron/renderer"]
 }
