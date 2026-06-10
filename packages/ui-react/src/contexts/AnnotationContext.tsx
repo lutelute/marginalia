@@ -13,7 +13,8 @@ import {
   MarginaliaFileV2,
   PendingSelectionV2,
 } from '../types/annotations';
-import { migrateFile } from '@marginalia/annotation-core';
+import { migrateFile, truncateHistoryBySize } from '@marginalia/annotation-core';
+import type { HistoryDetail } from '@marginalia/annotation-core';
 import { usePorts } from './PortsContext';
 import { useSettings } from './SettingsContext';
 import { useToast } from './ToastContext';
@@ -123,7 +124,7 @@ function annotationReducer(state: AnnotationState, action: AnnotationAction): An
     case 'ADD_HISTORY':
       return {
         ...state,
-        history: [action.payload, ...state.history].slice(0, 100),
+        history: truncateHistoryBySize([action.payload, ...state.history]),
       };
 
     case 'SET_LOADING':
@@ -249,6 +250,21 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
   // 設定の現在ユーザーを注釈の author / authorId に使う（未設定時は 'user'）
   const authorName = currentUser?.name?.trim() || 'user';
   const authorId = currentUser?.id || undefined;
+
+  // 履歴エントリ生成（操作者と構造化詳細を含む v2.1.0 形式）
+  const makeHistory = useCallback(
+    (action: string, summary: string, annotationId?: string, detail?: HistoryDetail): HistoryEntryV2 => ({
+      id: uuidv4(),
+      action,
+      summary,
+      timestamp: new Date().toISOString(),
+      annotationId,
+      author: authorName,
+      authorId,
+      detail,
+    }),
+    [authorName, authorId]
+  );
 
   // 最新値の参照用（reloadNonce 起点の effect から依存を増やさず読むため）。
   // 依存なし effect は毎コミット実行され、宣言順で後続の effect より先に走る。
@@ -430,28 +446,53 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
       const selectedText = selection.text || getAnnotationExactText(annotation);
       dispatch({
         type: 'ADD_HISTORY',
-        payload: {
-          id: uuidv4(),
-          timestamp: now,
-          action: type,
-          summary: `${type}を追加: "${selectedText.slice(0, 30)}..."`,
-          annotationId: annotation.id,
-        },
+        payload: makeHistory(
+          type,
+          `${type}を追加: "${selectedText.slice(0, 30)}..."`,
+          annotation.id,
+          { after: content }
+        ),
       });
     },
-    [currentFile, authorName, authorId]
+    [currentFile, authorName, authorId, makeHistory]
   );
 
-  const updateAnnotation = useCallback((id: string, updates: Partial<AnnotationV2>) => {
-    dispatch({
-      type: 'UPDATE_ANNOTATION',
-      payload: { id, ...updates, updatedAt: new Date().toISOString() },
-    });
-  }, []);
+  const updateAnnotation = useCallback(
+    (id: string, updates: Partial<AnnotationV2>) => {
+      // 内容の変更は前後テキスト付きで履歴に残す
+      const prev = state.annotations.find((a) => a.id === id);
+      if (prev && typeof updates.content === 'string' && updates.content !== prev.content) {
+        dispatch({
+          type: 'ADD_HISTORY',
+          payload: makeHistory('edit', `内容を更新: "${updates.content.slice(0, 30)}..."`, id, {
+            before: prev.content,
+            after: updates.content,
+          }),
+        });
+      }
+      dispatch({
+        type: 'UPDATE_ANNOTATION',
+        payload: { id, ...updates, updatedAt: new Date().toISOString() },
+      });
+    },
+    [state.annotations, makeHistory]
+  );
 
-  const deleteAnnotation = useCallback((id: string) => {
-    dispatch({ type: 'DELETE_ANNOTATION', payload: id });
-  }, []);
+  const deleteAnnotation = useCallback(
+    (id: string) => {
+      const prev = state.annotations.find((a) => a.id === id);
+      if (prev) {
+        dispatch({
+          type: 'ADD_HISTORY',
+          payload: makeHistory('delete', `注釈を削除: "${prev.content.slice(0, 30)}..."`, id, {
+            before: prev.content,
+          }),
+        });
+      }
+      dispatch({ type: 'DELETE_ANNOTATION', payload: id });
+    },
+    [state.annotations, makeHistory]
+  );
 
   const selectAnnotation = useCallback((id: string | null) => {
     dispatch({ type: 'SELECT_ANNOTATION', payload: id });
@@ -480,17 +521,35 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
             replies: [...annotation.replies, reply],
           },
         });
+        dispatch({
+          type: 'ADD_HISTORY',
+          payload: makeHistory('reply', `返信を追加: "${replyContent.slice(0, 30)}..."`, annotationId, {
+            after: replyContent,
+          }),
+        });
       }
     },
-    [state.annotations, authorName, authorId]
+    [state.annotations, authorName, authorId, makeHistory]
   );
 
-  const resolveAnnotation = useCallback((id: string, resolved: boolean = true) => {
-    dispatch({
-      type: 'UPDATE_ANNOTATION_STATUS',
-      payload: { id, status: resolved ? 'resolved' : 'active' },
-    });
-  }, []);
+  const resolveAnnotation = useCallback(
+    (id: string, resolved: boolean = true) => {
+      const prev = state.annotations.find((a) => a.id === id);
+      dispatch({
+        type: 'UPDATE_ANNOTATION_STATUS',
+        payload: { id, status: resolved ? 'resolved' : 'active' },
+      });
+      dispatch({
+        type: 'ADD_HISTORY',
+        payload: makeHistory(
+          resolved ? 'resolve' : 'unresolve',
+          `${resolved ? '解決' : '解決を取り消し'}: "${(prev?.content || '').slice(0, 30)}..."`,
+          id
+        ),
+      });
+    },
+    [state.annotations, makeHistory]
+  );
 
   const scrollToEditorLine = useCallback((line: number, annotationId: string) => {
     dispatch({
@@ -521,8 +580,12 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
   const keepAnnotation = useCallback(
     (id: string) => {
       setAnnotationStatus(id, 'kept');
+      dispatch({
+        type: 'ADD_HISTORY',
+        payload: makeHistory('keep', '孤立した注釈を保持しました', id),
+      });
     },
-    [setAnnotationStatus]
+    [setAnnotationStatus, makeHistory]
   );
 
   const reassignAnnotation = useCallback(
@@ -581,8 +644,14 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
         type: 'REASSIGN_ANNOTATION',
         payload: { id, newSelectors },
       });
+      dispatch({
+        type: 'ADD_HISTORY',
+        payload: makeHistory('reassign', `注釈を再割当て: "${newText.slice(0, 30)}..."`, id, {
+          after: newText,
+        }),
+      });
     },
-    [state.documentText, content]
+    [state.documentText, content, makeHistory]
   );
 
   // 孤立注釈を検出し、再びテキストが見つかったものは位置を自動再マッチング
@@ -628,6 +697,10 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
           type: 'BULK_UPDATE_STATUS',
           payload: { ids: orphaned, status: 'orphaned' },
         });
+        dispatch({
+          type: 'ADD_HISTORY',
+          payload: makeHistory('orphan', `${orphaned.length}件の注釈が本文から見つからなくなりました`),
+        });
       }
 
       // 再マッチング: 各注釈のセレクタを最新位置で更新し status を active に戻す
@@ -637,7 +710,7 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
 
       return orphaned;
     },
-    [state.annotations]
+    [state.annotations, makeHistory]
   );
 
   // ドキュメント内容の変更に追従して孤立検出＋再アンカーを実行（debounce付き）。

@@ -1,5 +1,6 @@
 import React from 'react';
 import type { HistoryEntryV2 } from '../../types/annotations';
+import AuthorBadge from './AuthorBadge';
 
 const ACTION_ICONS: Record<string, string> = {
   comment: '💬',
@@ -7,7 +8,17 @@ const ACTION_ICONS: Record<string, string> = {
   pending: '⏳',
   discussion: '💭',
   edit: '📝',
+  delete: '🗑️',
+  reply: '↩️',
+  resolve: '✅',
+  unresolve: '🔄',
+  keep: '📌',
+  reassign: '🔗',
+  orphan: '⚠️',
 };
+
+const DETAIL_MAX = 60;
+const clip = (text: string) => (text.length > DETAIL_MAX ? `${text.slice(0, DETAIL_MAX)}…` : text);
 
 function HistoryItem({ item }: { item: HistoryEntryV2 }) {
   const formatDate = (dateString: string) => {
@@ -36,7 +47,22 @@ function HistoryItem({ item }: { item: HistoryEntryV2 }) {
       <div className="history-icon">{icon}</div>
       <div className="history-content">
         <div className="history-summary">{item.summary}</div>
-        <div className="history-time">{formatDate(item.timestamp)}</div>
+        {item.detail?.before !== undefined && item.detail?.after !== undefined && (
+          <div className="history-detail">
+            <span className="history-detail-before">{clip(item.detail.before)}</span>
+            {' → '}
+            <span className="history-detail-after">{clip(item.detail.after)}</span>
+          </div>
+        )}
+        <div className="history-time">
+          {item.author && (
+            <>
+              <AuthorBadge author={item.author} authorId={item.authorId} />
+              {' ・ '}
+            </>
+          )}
+          {formatDate(item.timestamp)}
+        </div>
       </div>
 
       <style>{`
@@ -81,6 +107,25 @@ function HistoryItem({ item }: { item: HistoryEntryV2 }) {
           font-size: 11px;
           color: var(--text-muted);
           margin-top: 4px;
+          display: flex;
+          align-items: center;
+          gap: 2px;
+        }
+
+        .history-detail {
+          font-size: 11px;
+          color: var(--text-muted);
+          margin-top: 2px;
+          word-break: break-word;
+        }
+
+        .history-detail-before {
+          text-decoration: line-through;
+          opacity: 0.7;
+        }
+
+        .history-detail-after {
+          color: var(--text-secondary);
         }
       `}</style>
     </div>

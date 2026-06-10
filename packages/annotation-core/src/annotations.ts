@@ -86,6 +86,20 @@ export interface HistoryEntryV2 {
   summary: string;
   timestamp: string;
   annotationId?: string;
+  /** 操作したユーザー名（v2.1.0 で追加、旧データは未設定） */
+  author?: string;
+  /** 操作したユーザーID（v2.1.0 で追加） */
+  authorId?: string;
+  /** 変更の構造化詳細（v2.1.0 で追加）。内容変更の前後テキスト等 */
+  detail?: HistoryDetail;
+}
+
+/** 履歴エントリの構造化詳細。表示・差分追跡に使う */
+export interface HistoryDetail {
+  /** 変更前の内容（更新・削除時） */
+  before?: string;
+  /** 変更後の内容（追加・更新・返信・再割当て時） */
+  after?: string;
 }
 
 // --- .mrglファイルV2形式 ---

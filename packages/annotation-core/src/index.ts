@@ -5,4 +5,5 @@ export * from './annotations';
 export * from './annotationTypes';
 export * from './selectorUtils';
 export * from './migration';
+export * from './history';
 export * from './w3cConverter';
