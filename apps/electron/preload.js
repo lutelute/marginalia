@@ -86,6 +86,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ビルドシステム操作
   checkDependencies: () => ipcRenderer.invoke('build:check-dependencies'),
   detectProject: (dirPath) => ipcRenderer.invoke('build:detect-project', dirPath),
+  scaffoldPaper: (dirPath, title) => ipcRenderer.invoke('build:scaffold-paper', dirPath, title),
   runBuild: (projectRoot, manifestPath, format) => ipcRenderer.invoke('build:run', projectRoot, manifestPath, format),
   listTemplates: (dirPath) => ipcRenderer.invoke('build:list-templates', dirPath),
   readManifest: (manifestPath) => ipcRenderer.invoke('build:read-manifest', manifestPath),

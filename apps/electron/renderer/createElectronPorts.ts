@@ -52,6 +52,7 @@ export function createElectronPorts(): PlatformPorts {
     },
     build: {
       detectProject: (dirPath) => api().detectProject(dirPath),
+      scaffoldPaper: (dirPath, title) => api().scaffoldPaper(dirPath, title),
       listManifests: (dirPath) => api().listManifests(dirPath),
       listTemplates: (dirPath) => api().listTemplates(dirPath),
       readCatalog: (dirPath) => api().readCatalog(dirPath),

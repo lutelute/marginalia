@@ -89,4 +89,14 @@ export interface DependencyStatus {
 export interface ProjectDetectionResult {
   isProject: boolean;
   projectDir: string | null;
+  /** 'standalone' = フォルダ直下のマニフェストを同梱ツールチェーンでビルドする形態 */
+  mode?: 'standalone';
+}
+
+/** 論文プロジェクト雛形生成の結果 */
+export interface ScaffoldResult {
+  success: boolean;
+  created: string[];
+  skipped: string[];
+  error?: string;
 }

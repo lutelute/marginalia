@@ -8,6 +8,7 @@ import type {
   BuildResult,
   DependencyStatus,
   ProjectDetectionResult,
+  ScaffoldResult,
   FileTreeNode,
   FileStats,
   ReadDirectoryOptions,
@@ -156,6 +157,8 @@ export interface RunAllDemosResult {
  */
 export interface BuildRunnerPort {
   detectProject(dirPath: string): Promise<ProjectDetectionResult>;
+  /** 論文プロジェクトの雛形（paper.yaml / sections / references.bib / figures/）を生成 */
+  scaffoldPaper(dirPath: string, title?: string): Promise<ScaffoldResult>;
   listManifests(
     dirPath: string
   ): Promise<{ success: boolean; manifests: ManifestInfo[]; error?: string }>;

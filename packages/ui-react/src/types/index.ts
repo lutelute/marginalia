@@ -13,6 +13,7 @@ import type {
   BuildResult,
   DependencyStatus,
   ProjectDetectionResult,
+  ScaffoldResult,
 } from '@marginalia/shared-types';
 // File 系の型も @marginalia/shared-types に移行（ElectronAPI で参照する分を import）
 import type {
@@ -300,6 +301,7 @@ export interface ElectronAPI {
   // ビルドシステム関連
   checkDependencies: () => Promise<DependencyStatus>;
   detectProject: (dirPath: string) => Promise<ProjectDetectionResult>;
+  scaffoldPaper: (dirPath: string, title?: string) => Promise<ScaffoldResult>;
   runBuild: (projectRoot: string, manifestPath: string, format: string) => Promise<BuildResult>;
   listTemplates: (dirPath: string) => Promise<{ success: boolean; templates: TemplateInfo[]; error?: string }>;
   readManifest: (manifestPath: string) => Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }>;

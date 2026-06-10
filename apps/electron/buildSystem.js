@@ -4,6 +4,73 @@ const { execFile } = require('child_process');
 const yaml = require('js-yaml');
 
 // ---------------------------------------------------------------------------
+// 同梱ビルドツールチェーン
+// ---------------------------------------------------------------------------
+
+/**
+ * アプリ同梱の report-build-system の場所を返す。
+ * パッケージ版: <resources>/report-build-system（extraResources で同梱）
+ * 開発時: リポジトリ直下の report-build-system/
+ */
+function getBundledToolchainDir() {
+  const candidates = [];
+  if (process.resourcesPath) {
+    candidates.push(path.join(process.resourcesPath, 'report-build-system'));
+  }
+  candidates.push(path.join(__dirname, '..', '..', 'report-build-system'));
+  return candidates;
+}
+
+async function resolveBundledToolchain() {
+  for (const dir of getBundledToolchainDir()) {
+    if (await exists(path.join(dir, 'build'))) {
+      return dir;
+    }
+  }
+  return null;
+}
+
+/**
+ * YAML がビルド可能なマニフェスト（title + template + sections/source）かを判定
+ */
+function isManifestShaped(data) {
+  return Boolean(
+    data &&
+      typeof data === 'object' &&
+      data.title &&
+      data.template &&
+      (data.sections || data.source)
+  );
+}
+
+/**
+ * フォルダ直下のマニフェスト形 YAML を列挙（スタンドアロン論文フォルダ用）
+ */
+async function listStandaloneManifests(dirPath) {
+  const manifests = [];
+  let entries;
+  try {
+    entries = await fs.readdir(dirPath, { withFileTypes: true });
+  } catch {
+    return manifests;
+  }
+  for (const e of entries) {
+    if (!e.isFile() || !/\.ya?ml$/i.test(e.name) || e.name.startsWith('.')) continue;
+    const filePath = path.join(dirPath, e.name);
+    try {
+      const content = await fs.readFile(filePath, 'utf-8');
+      const data = yaml.load(content);
+      if (isManifestShaped(data)) {
+        manifests.push({ filePath, name: e.name, data });
+      }
+    } catch {
+      // 壊れた yaml はスキップ
+    }
+  }
+  return manifests;
+}
+
+// ---------------------------------------------------------------------------
 // プロジェクト検出
 // ---------------------------------------------------------------------------
 
@@ -37,6 +104,13 @@ async function detectProject(dirPath) {
       return { isProject: true, projectDir: subDir };
     }
 
+    // スタンドアロン論文フォルダ: フォルダ直下にマニフェスト形 YAML があり、
+    // アプリ同梱のツールチェーンでビルドできる場合
+    const standalone = await listStandaloneManifests(dirPath);
+    if (standalone.length > 0 && (await resolveBundledToolchain())) {
+      return { isProject: true, projectDir: dirPath, mode: 'standalone' };
+    }
+
     return { isProject: false, projectDir: null };
   } catch {
     return { isProject: false, projectDir: null };
@@ -54,6 +128,24 @@ async function detectProject(dirPath) {
 async function listManifests(dirPath) {
   try {
     const projectsDir = path.join(dirPath, 'projects');
+
+    // projects/ が無い場合はスタンドアロン論文フォルダとして直下を走査
+    if (!(await isDirectory(projectsDir))) {
+      const standalone = await listStandaloneManifests(dirPath);
+      const manifests = standalone.map(({ filePath, name, data }) => ({
+        name: name.replace(/\.ya?ml$/, ''),
+        path: filePath,
+        fileName: name,
+        title: data.title || name.replace(/\.ya?ml$/, ''),
+        template: data.template || '',
+        style: data.style || '',
+        output: Array.isArray(data.output) ? data.output : data.output ? [data.output] : ['pdf'],
+        sections: Array.isArray(data.sections) ? data.sections : [],
+        sectionCount: Array.isArray(data.sections) ? data.sections.length : 0,
+      }));
+      return { success: true, manifests };
+    }
+
     const entries = await fs.readdir(projectsDir, { withFileTypes: true });
 
     const yamlFiles = entries.filter(
@@ -136,7 +228,11 @@ async function writeManifest(manifestPath, data) {
  */
 async function listTemplates(dirPath) {
   try {
-    const templatesDir = path.join(dirPath, 'templates');
+    let templatesDir = path.join(dirPath, 'templates');
+    if (!(await isDirectory(templatesDir))) {
+      const bundled = await resolveBundledToolchain();
+      if (bundled) templatesDir = path.join(bundled, 'templates');
+    }
     const entries = await fs.readdir(templatesDir, { withFileTypes: true });
 
     const templates = entries
@@ -222,21 +318,39 @@ async function runBuild(projectRoot, manifestPath, format, onProgress) {
   if (format && !ALLOWED_FORMATS.includes(format)) {
     return { success: false, error: `不正な出力フォーマット: ${format}` };
   }
-  const args = [path.join(projectRoot, 'build'), manifestPath];
+
+  // ローカルに build スクリプトが無いスタンドアロン論文フォルダは
+  // 同梱ツールチェーンでビルドし、成果物は <projectRoot>/mg_output/<fmt>/ に出す
+  const localBuildScript = path.join(projectRoot, 'build');
+  const isStandalone = !(await exists(localBuildScript));
+  let buildScript = localBuildScript;
+  const env = { ...process.env };
+  const ext = format || 'pdf';
+  const manifestName = path.basename(manifestPath, path.extname(manifestPath));
+  let expectedOutputPath = path.join(projectRoot, 'output', `${manifestName}.${ext}`);
+
+  if (isStandalone) {
+    const bundled = await resolveBundledToolchain();
+    if (!bundled) {
+      return { success: false, error: 'ビルドツールチェーンが見つかりません（アプリ同梱リソース欠落）' };
+    }
+    buildScript = path.join(bundled, 'build');
+    const outputDir = path.join(projectRoot, 'mg_output', ext);
+    env.MARGINALIA_OUTPUT_DIR = outputDir;
+    expectedOutputPath = path.join(outputDir, `${manifestName}.${ext}`);
+  }
+
+  const args = [buildScript, manifestPath];
   if (format) args.push(`--${format}`);
 
   // venv の Python を優先、なければシステム python3
   const venvPython = path.join(projectRoot, '.venv', 'bin', 'python3');
   const pythonCmd = (await exists(venvPython)) ? venvPython : 'python3';
 
-  // マニフェスト名から出力パスを算出
-  const manifestName = path.basename(manifestPath, path.extname(manifestPath));
-  const ext = format || 'pdf';
-  const expectedOutputPath = path.join(projectRoot, 'output', `${manifestName}.${ext}`);
-
   return new Promise((resolve) => {
     const child = execFile(pythonCmd, args, {
       cwd: projectRoot,
+      env,
       maxBuffer: 10 * 1024 * 1024, // 10MB
       timeout: 300000, // 5分タイムアウト
     }, (error, stdout, stderr) => {
@@ -286,7 +400,13 @@ async function runBuild(projectRoot, manifestPath, format, onProgress) {
 async function readCatalog(dirPath) {
   try {
     // --- 共通テンプレート (builtin) ---
-    const builtinPath = path.join(dirPath, 'templates', 'catalog.yaml');
+    // ローカルに templates/ が無いスタンドアロンフォルダはバンドル版を使う
+    let catalogBase = dirPath;
+    if (!(await exists(path.join(dirPath, 'templates', 'catalog.yaml')))) {
+      const bundled = await resolveBundledToolchain();
+      if (bundled) catalogBase = bundled;
+    }
+    const builtinPath = path.join(catalogBase, 'templates', 'catalog.yaml');
     const builtinContent = await fs.readFile(builtinPath, 'utf-8');
     let builtinData = yaml.load(builtinContent);
     if (builtinData && !builtinData.templates) {
@@ -539,6 +659,96 @@ async function walkMdFiles(dir, rootDir) {
 }
 
 // ---------------------------------------------------------------------------
+// 論文プロジェクトの雛形生成
+// ---------------------------------------------------------------------------
+
+const SCAFFOLD_FILES = (title) => ({
+  'paper.yaml': `title: "${title}"
+author:
+  - "著者名, 所属"
+date: "${new Date().toISOString().slice(0, 10)}"
+template: paper
+output: [pdf, docx]
+lang: ja
+bibliography: references.bib
+abstract: |
+  ここに要旨を書きます。
+
+sections:
+  - 01-intro.md
+  - 02-method.md
+`,
+  '01-intro.md': `# はじめに
+
+本文をここに書きます。引用は [@sample2026] のように書くと references.bib から解決されます。
+
+インライン数式 $E = mc^2$ と、番号付きのディスプレイ数式が使えます:
+
+<!-- equation: eq-sample | \\mathcal{L}(\\theta) = -\\sum_{i=1}^{N} \\log p_\\theta(y_i \\mid x_i) -->
+
+本文中から <!-- ref: eq:eq-sample --> のように参照できます。
+`,
+  '02-method.md': `# 提案手法
+
+図は figures/ に置いて、次のように挿入します:
+
+<!-- figure: fig-overview | figures/overview.png | システム概要図 | 70% -->
+
+<!-- ref: fig:fig-overview --> に全体構成を示します。
+
+表はキャプション付きで挿入できます:
+
+<!-- table: tbl-result | 実験結果 -->
+| 手法 | 精度 |
+|------|------|
+| 提案手法 | 92.0% |
+<!-- /table -->
+
+結果を <!-- ref: tbl:tbl-result --> に示します。
+`,
+  'references.bib': `@article{sample2026,
+  title={Sample Reference Title},
+  author={Author, A. and Author, B.},
+  journal={Journal of Examples},
+  year={2026}
+}
+`,
+});
+
+/**
+ * 論文プロジェクトの雛形を生成する。既存ファイルは上書きしない。
+ * @returns {{ success: boolean, created: string[], skipped: string[] }}
+ */
+async function scaffoldPaperProject(dirPath, title) {
+  try {
+    const files = SCAFFOLD_FILES(title || '論文タイトル');
+    const created = [];
+    const skipped = [];
+
+    for (const [name, content] of Object.entries(files)) {
+      const filePath = path.join(dirPath, name);
+      if (await exists(filePath)) {
+        skipped.push(name);
+        continue;
+      }
+      await fs.writeFile(filePath, content, 'utf-8');
+      created.push(name);
+    }
+
+    // figures/ ディレクトリ
+    const figuresDir = path.join(dirPath, 'figures');
+    if (!(await exists(figuresDir))) {
+      await fs.mkdir(figuresDir, { recursive: true });
+      created.push('figures/');
+    }
+
+    return { success: true, created, skipped };
+  } catch (error) {
+    return { success: false, created: [], skipped: [], error: error.message };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // ユーティリティ
 // ---------------------------------------------------------------------------
 
@@ -597,6 +807,7 @@ async function walkBibFiles(dir, results) {
 
 module.exports = {
   detectProject,
+  scaffoldPaperProject,
   listManifests,
   listTemplates,
   readManifest,

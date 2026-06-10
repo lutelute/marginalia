@@ -444,6 +444,16 @@ ipcMain.handle('build:detect-project', async (event, dirPath) => {
   return await buildSystem.detectProject(dirPath);
 });
 
+// 論文プロジェクトの雛形生成
+ipcMain.handle('build:scaffold-paper', async (event, dirPath, title) => {
+  try {
+    pathGuard.assertPathAllowed(dirPath, '雛形生成先フォルダ');
+  } catch (error) {
+    return { success: false, created: [], skipped: [], error: error.message };
+  }
+  return await buildSystem.scaffoldPaperProject(dirPath, title);
+});
+
 // ビルド実行
 ipcMain.handle('build:run', async (event, projectRoot, manifestPath, format) => {
   return await buildSystem.runBuild(projectRoot, manifestPath, format, (progress) => {

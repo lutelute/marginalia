@@ -2,12 +2,23 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useBuild } from '../../contexts/BuildContext';
 import { usePorts } from '../../contexts/PortsContext';
 import { useTab } from '../../contexts/TabContext';
+import { useFile } from '../../contexts/FileContext';
+import { useToast } from '../../contexts/ToastContext';
 
 type SubTab = 'build' | 'templates';
 
 /** マニフェスト名 + フォーマットから出力パスを算出 */
-function getOutputPath(projectDir: string, manifestPath: string, fmt: string) {
+function getOutputPath(
+  projectDir: string,
+  manifestPath: string,
+  fmt: string,
+  mode?: 'standalone'
+) {
   const name = manifestPath.split('/').pop()?.replace(/\.ya?ml$/, '') || '';
+  // スタンドアロン論文フォルダは mg_output/<fmt>/ に出力される
+  if (mode === 'standalone') {
+    return `${projectDir}/mg_output/${fmt}/${name}.${fmt}`;
+  }
   return `${projectDir}/output/${name}.${fmt}`;
 }
 
@@ -19,8 +30,33 @@ function SidebarGallery({ onOpenFullGallery }: { onOpenFullGallery: () => void }
     buildStatus, buildAllStatus, buildAllResults, buildAllProgress,
     // ProjectPanel から吸収
     isProject, manifests, buildResult, buildLog, runBuild,
+    projectMode, detectProject,
   } = useBuild();
   const { openTab } = useTab();
+  const { rootPath, refreshDirectory } = useFile();
+  const toast = useToast();
+
+  // 開いているフォルダに論文プロジェクトの雛形を生成
+  const [scaffolding, setScaffolding] = useState(false);
+  const handleScaffold = async () => {
+    if (!rootPath || scaffolding) return;
+    setScaffolding(true);
+    try {
+      const result = await ports.build.scaffoldPaper(rootPath);
+      if (result.success) {
+        const summary = result.created.length > 0
+          ? `作成: ${result.created.join(', ')}`
+          : 'すべて既存のためスキップしました';
+        toast.success(`論文プロジェクトを準備しました（${summary}）`);
+        await detectProject(rootPath);
+        await refreshDirectory();
+      } else {
+        toast.error(result.error || '雛形の生成に失敗しました');
+      }
+    } finally {
+      setScaffolding(false);
+    }
+  };
 
   const [installError] = useState<string | null>(null);
 
@@ -45,7 +81,7 @@ function SidebarGallery({ onOpenFullGallery }: { onOpenFullGallery: () => void }
     const found: Record<string, string> = {};
     for (const m of manifests) {
       for (const fmt of (m.output || ['pdf'])) {
-        const p = getOutputPath(projectDir, m.path, fmt);
+        const p = getOutputPath(projectDir, m.path, fmt, projectMode);
         try {
           if (await ports.fs.exists(p)) {
             found[`${m.path}:${fmt}`] = p;
@@ -54,7 +90,7 @@ function SidebarGallery({ onOpenFullGallery }: { onOpenFullGallery: () => void }
       }
     }
     setExistingOutputs(found);
-  }, [projectDir, manifests, ports]);
+  }, [projectDir, manifests, ports, projectMode]);
 
   useEffect(() => { checkOutputs(); }, [checkOutputs]);
   useEffect(() => {
@@ -123,6 +159,22 @@ function SidebarGallery({ onOpenFullGallery }: { onOpenFullGallery: () => void }
 
       {/* コンテンツ領域 */}
       <div className="sidebar-gallery-list">
+        {/* フォルダは開いているがビルドプロジェクトではない → 論文の雛形作成を提案 */}
+        {!isProject && rootPath && (
+          <div className="sg-scaffold-callout">
+            <div className="sg-scaffold-text">
+              このフォルダで論文を始められます。雛形（paper.yaml + セクション +
+              references.bib）を作成すると、そのまま PDF/DOCX をビルドできます。
+            </div>
+            <button
+              className="sg-scaffold-btn"
+              onClick={handleScaffold}
+              disabled={scaffolding}
+            >
+              {scaffolding ? '作成中...' : '📄 論文プロジェクトを作成'}
+            </button>
+          </div>
+        )}
         {activeSubTab === 'build' && isProject ? (
           /* ビルド設定タブ */
           <div className="sg-build-content">
@@ -376,6 +428,42 @@ function SidebarGallery({ onOpenFullGallery }: { onOpenFullGallery: () => void }
         .sg-build-content {
           padding: 4px 0;
         }
+        .sg-scaffold-callout {
+          margin: 8px;
+          padding: 12px;
+          background-color: var(--bg-tertiary);
+          border: 1px solid var(--border-color);
+          border-radius: 8px;
+        }
+
+        .sg-scaffold-text {
+          font-size: 11px;
+          color: var(--text-secondary);
+          line-height: 1.5;
+          margin-bottom: 10px;
+        }
+
+        .sg-scaffold-btn {
+          width: 100%;
+          padding: 8px 12px;
+          font-size: 12px;
+          font-weight: 600;
+          background-color: var(--accent-color, #3b82f6);
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+        }
+
+        .sg-scaffold-btn:hover:not(:disabled) {
+          opacity: 0.9;
+        }
+
+        .sg-scaffold-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
         .sg-build-empty {
           padding: 12px;
           font-size: 11px;

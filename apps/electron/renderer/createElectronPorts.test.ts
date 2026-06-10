@@ -46,6 +46,7 @@ const API_METHODS = [
   'onTerminalExit',
   // build
   'detectProject',
+  'scaffoldPaper',
   'listManifests',
   'listTemplates',
   'readCatalog',
@@ -167,6 +168,12 @@ const DELEGATIONS: Array<[string, (p: PlatformPorts) => unknown, keyof MockApi, 
   ['terminal.onExit', (p) => p.terminal.onExit('s1', cb), 'onTerminalExit', ['s1', cb]],
   // build
   ['build.detectProject', (p) => p.build.detectProject('/proj'), 'detectProject', ['/proj']],
+  [
+    'build.scaffoldPaper',
+    (p) => p.build.scaffoldPaper('/proj', '題名'),
+    'scaffoldPaper',
+    ['/proj', '題名'],
+  ],
   ['build.listManifests', (p) => p.build.listManifests('/proj'), 'listManifests', ['/proj']],
   ['build.listTemplates', (p) => p.build.listTemplates('/proj'), 'listTemplates', ['/proj']],
   ['build.readCatalog', (p) => p.build.readCatalog('/proj'), 'readCatalog', ['/proj']],

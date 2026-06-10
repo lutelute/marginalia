@@ -41,6 +41,7 @@ export type DefaultTemplateMap = Record<string, string[]>;
 
 interface BuildState {
   isProject: boolean;
+  projectMode?: 'standalone';
   projectDir: string | null;
   manifests: ManifestInfo[];
   templates: TemplateInfo[];
@@ -62,7 +63,7 @@ interface BuildState {
 }
 
 type BuildAction =
-  | { type: 'SET_PROJECT'; payload: { isProject: boolean; projectDir: string | null } }
+  | { type: 'SET_PROJECT'; payload: { isProject: boolean; projectDir: string | null; mode?: 'standalone' } }
   | { type: 'CLEAR_PROJECT' }
   | { type: 'SET_MANIFESTS'; payload: ManifestInfo[] }
   | { type: 'SET_TEMPLATES'; payload: TemplateInfo[] }
@@ -135,6 +136,7 @@ function buildReducer(state: BuildState, action: BuildAction): BuildState {
       return {
         ...state,
         isProject: action.payload.isProject,
+        projectMode: action.payload.mode,
         projectDir: action.payload.projectDir,
       };
 
@@ -218,7 +220,7 @@ export function BuildProvider({ children, rootPath }: { children: React.ReactNod
       const result = await ports.build.detectProject(dirPath);
       dispatch({
         type: 'SET_PROJECT',
-        payload: { isProject: result.isProject, projectDir: result.projectDir },
+        payload: { isProject: result.isProject, projectDir: result.projectDir, mode: result.mode },
       });
     } catch {
       dispatch({ type: 'CLEAR_PROJECT' });

@@ -131,6 +131,7 @@ export function createWebPorts(options: WebPortsOptions = {}): PlatformPorts {
     // ビルド: 依存全 false → UI が「ビルド不可」を表示する縮退（計画どおり）
     build: {
       detectProject: async () => ({ isProject: false, projectDir: null }),
+      scaffoldPaper: async () => ({ success: false, created: [], skipped: [], error: WEB_UNSUPPORTED }),
       listManifests: async () => ({ success: true, manifests: [] }),
       listTemplates: async () => ({ success: true, templates: [] }),
       readCatalog: async () => ({ success: true, catalog: null }),
