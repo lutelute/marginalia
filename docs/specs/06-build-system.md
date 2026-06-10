@@ -8,6 +8,12 @@ Markdown ドキュメントから PDF/DOCX を生成する報告書ビルドシ�
 
 ## 現状 (As-Is)
 
+> **v1.8.0 追記**: ビルドツールチェーン（build/engines/filters/templates）を
+> アプリに同梱し、フォルダ直下にマニフェスト形 YAML（title+template+sections）が
+> あるだけの「スタンドアロン論文フォルダ」を検出してビルドできるようになった。
+> 成果物は `<フォルダ>/mg_output/<fmt>/` に出力される。非プロジェクトフォルダの
+> Build パネルから雛形（paper.yaml ほか）をワンクリック生成できる。
+
 ### 実装済みの機能一覧
 - **プロジェクト自動検出**: `build` スクリプト + `projects/` + `templates/` の存在でビルドプロジェクトを識別
 - **マニフェスト管理**: YAML マニフェスト（`projects/*.yaml`）の一覧表示・読み込み・GUI 編集・保存
