@@ -7,6 +7,9 @@ import TimelineView from './TimelineView';
 import OrphanedAnnotations from './OrphanedAnnotations';
 import { ANNOTATION_TYPE_CONFIGS } from '../../constants/annotationTypes';
 import { getEditorPosition } from '../../utils/selectorUtils';
+import { generateReviewReport } from '@marginalia/annotation-core';
+import { usePorts } from '../../contexts/PortsContext';
+import { useToast } from '../../contexts/ToastContext';
 import type { AnnotationType } from '../../types/annotations';
 
 function AnnotationPanel() {
@@ -16,7 +19,9 @@ function AnnotationPanel() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'unresolved' | 'resolved'>('all');
   const [filterTypes, setFilterTypes] = useState<string[]>([]);
   const [sortOrder, setSortOrder] = useState('time');
-  const { currentFile } = useFile();
+  const { currentFile, content, refreshDirectory } = useFile();
+  const ports = usePorts();
+  const toast = useToast();
   const {
     annotations,
     pendingSelection,
@@ -51,6 +56,21 @@ function AnnotationPanel() {
   const handleCancel = () => {
     setNewAnnotationContent('');
     setPendingSelection(null);
+  };
+
+  // 校閲レポート（md）を対象ファイルの隣に書き出す
+  const handleExportReport = async () => {
+    if (!currentFile) return;
+    const fileName = currentFile.split('/').pop() || 'document.md';
+    const report = generateReviewReport(annotations, { fileName, docText: content });
+    const reportPath = currentFile.replace(/\.[^./]+$/, '') + '.review.md';
+    const result = await ports.fs.writeFile(reportPath, report);
+    if (result.success) {
+      toast.success(`校閲レポートを書き出しました: ${reportPath.split('/').pop()}`);
+      refreshDirectory();
+    } else {
+      toast.error('校閲レポートの書き出しに失敗しました');
+    }
   };
 
   const filteredAnnotations = annotations
@@ -208,6 +228,14 @@ function AnnotationPanel() {
                 📍
               </button>
             </div>
+            <button
+              className="report-btn"
+              onClick={handleExportReport}
+              disabled={!currentFile || annotations.length === 0}
+              title="注釈一覧を校閲レポート（.review.md）として書き出す"
+            >
+              📋 レポート
+            </button>
           </div>
           <div className="type-filter-row">
             {ANNOTATION_TYPE_CONFIGS.map((type) => (
@@ -501,6 +529,27 @@ function AnnotationPanel() {
         }
 
         /* スクロール可能なコンテンツ */
+        .report-btn {
+          margin-left: auto;
+          padding: 4px 8px;
+          font-size: 11px;
+          background-color: var(--bg-tertiary);
+          color: var(--text-secondary);
+          border: 1px solid var(--border-color);
+          border-radius: 4px;
+          white-space: nowrap;
+        }
+
+        .report-btn:hover:not(:disabled) {
+          background-color: var(--bg-hover);
+          color: var(--text-primary);
+        }
+
+        .report-btn:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+
         .panel-content {
           flex: 1;
           overflow-y: auto;

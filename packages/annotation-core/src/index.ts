@@ -7,4 +7,5 @@ export * from './selectorUtils';
 export * from './migration';
 export * from './history';
 export * from './annotationLineMap';
+export * from './reviewReport';
 export * from './w3cConverter';
